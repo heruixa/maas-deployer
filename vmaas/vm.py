@@ -29,6 +29,7 @@ from vmaas.util import (
 )
 
 
+DEFAULT_USER_DATA_DIR = os.path.join(os.getcwd(), 'user-files')
 log = logging.getLogger('vmaas.main')
 working_dir = tempfile.mkdtemp()
 
@@ -274,6 +275,11 @@ class CloudInstance(Instance):
         if 'node_group_ifaces' in kwargs:
             self.node_group_ifaces = kwargs['node_group_ifaces']
 
+        if 'user_data_dir' in kwargs:
+            self.user_data_dir = kwargs['user_data_dir']
+        else:
+            self.user_data_dir = DEFAULT_USER_DATA_DIR
+
         self.apt_http_proxy = kwargs.get('apt_http_proxy')
 
     def _get_cloud_image_info(self):
@@ -442,13 +448,36 @@ class CloudInstance(Instance):
             f.flush()
 
         user_data_file = os.path.join(working_dir, 'user-data.txt')
-        execc(['write-mime-multipart',
-               '--output={}'.format(user_data_file),
-               base_file,
-               '{}:text/x-shellscript'.format(config_maas_script),
-               curtin_file])
+        cmd = ['write-mime-multipart', '--output={}'.format(user_data_file),
+               base_file, '{}:text/x-shellscript'.format(config_maas_script)]
+
+        cmd = cmd + self._get_user_supplied_files()
+        log.debug('Generating mime-multipart user data file using: %s',
+                  str(cmd))
+        execc(cmd)
 
         return user_data_file
+
+    def _get_user_supplied_files(self):
+        """
+        Returns a list of the user supplied files to include in the cloud-init
+        user-data file.
+        """
+        user_files = []
+
+        if os.path.exists(self.user_data_dir) and \
+           os.path.isdir(self.user_data_dir):
+            try:
+                for f in os.listdir(self.user_data_dir):
+                    src = os.path.join(self.user_data_dir, f)
+                    dest = os.path.join(working_dir, 'user_data_%s' % f)
+                    shutil.copy(src, dest)
+                    user_files.append(dest)
+            except OSError as e:
+                log.error('Error copying user file: %s', str(e))
+                raise e
+
+        return user_files
 
     def create_seed_image(self):
         """
