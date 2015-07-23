@@ -1,0 +1,31 @@
+This tool is used to deploy a virtual MAAS server, a virtual juju bootstrap node,
+register physical hardware nodes, and kick off the Juju deployment of an openstack
+cloud within the MAAS environment.
+
+The deployment.yaml file contains a description of the environments, with various parts
+describing the different pieces of the environment.
+
+Upon completion of creating the virtual machines, etc, MAAS should be running at the
+configured IP address (http://{address}/MAAS) with the login of dtadmin/ubuntu.
+
+To deploy:
+
+./setup.sh    # installs pre-requisites
+./maas_deployer.py -c deployment.yaml    # creates the juju bootstrap and maas virtual machines
+
+
+To cleanup and try again:
+./clean.sh     # Note, this assumes default node names in sample deployment file.
+
+
+What should work:
+ - The MAAS node should be provisioned and configured.
+ - The boot-images should be in progress of being downloaded.
+ - configuration parameters configured in MAAS
+ - nodes commissioning in maas
+ - nodes tagged appropriately (api, bootstrap, etc)
+ - environments.yaml file generated for juju environment
+ - Nodes are commissioned and ready
+
+Known Issues:
+ - Juju scripts are not started automatically yet.

@@ -1,0 +1,152 @@
+#
+# Copyright 2015 Canonical, Ltd.
+#
+# Contains utility functions
+
+import argparse
+import collections
+import logging
+import os
+import subprocess
+
+log = logging.getLogger('vmaas.main')
+
+
+def execc(cmd, stdin=None, pipedcmds=None, fatal=True, suppress_stderr=False):
+    """Execute command with subprocess.
+
+    If pipedcmds are provided, this function is called recursively piping
+    stdout to next stdin and returning stdout of final process.
+    """
+    _input = None
+
+    # Abridge stdin for log if provided
+    _stdin = None
+    if stdin:
+        _stdin = stdin
+        if type(stdin) == file:
+            _stdin = "<type 'file'>"
+        else:
+            if len(_stdin) > 10:
+                _stdin = "'%s...'" % _stdin[:10]
+
+    log.debug("Executing: '%s' stdin=%s", ' '.join(cmd), _stdin)
+
+    if stdin:
+        if type(stdin) == file:
+            p = subprocess.Popen(cmd, stdin=stdin, stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE)
+            stdin.close()
+        else:
+            p = subprocess.Popen(cmd, stdin=subprocess.PIPE,
+                                 stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE)
+            _input = stdin
+    else:
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE)
+
+    if not pipedcmds:
+        ret = p.communicate(input=_input)
+        if fatal and p.returncode:
+            stderr = ret[1]
+            if not suppress_stderr:
+                print stderr
+
+            raise subprocess.CalledProcessError(p.returncode, ' '.join(cmd),
+                                                output=stderr)
+
+        return ret
+
+    return execc(pipedcmds[0], stdin=p.stdout, pipedcmds=pipedcmds[1:])
+
+
+def exec_script_remote(user, host, script):
+    """Execute a script within an SSH session."""
+    log.debug("Executing script on remote host '%s'", host)
+    cmd = ['ssh', '-i', os.path.expanduser('~/.ssh/id_maas'),
+           '-o', 'UserKnownHostsFile=/dev/null',
+           '-o', 'StrictHostKeyChecking=no', '%s@%s' % (user, host)]
+    return execc(cmd, stdin=script.strip())
+
+
+def virsh(cmd, fatal=True):
+    _cmd = ['virsh']
+    _cmd.extend(cmd)
+    return execc(_cmd, fatal=fatal)
+
+
+def flatten(d, parent_key=''):
+    """
+    Flattens a nested set of dictionaries within dictionaries.
+    The resultant map will contain all of the leaf elements contained
+    in the original dictionaries, with the keys indicating the original
+    hierarchy of the nested dictionaries.
+
+    e.g:
+    {
+        'foo': 'bar',
+        'baz': {
+            'one': 1,
+            'two': 2,
+            'three': {
+                'eh': 'a',
+                'bee': 'b',
+                'see': 'c'
+            }
+        },
+    }
+
+    will be flattened to:
+    {
+        'foo': 'bar',
+        'baz_one': 1,
+        'baz_two': 2,
+        'baz_three_eh': 'a',
+        'baz_three_bee': 'b',
+        'baz_three_see': 'c',
+    }
+
+    :param d: a dictionary containing other dictionaries which should
+              be flattened.
+    :param parent_key: the parent element's key. Primarily used internally
+                       to keep track of the key during recursion.
+    """
+    items = []
+    for k, v in d.items():
+        new_key = parent_key + '_' + k if parent_key else k
+        if isinstance(v, collections.MutableMapping):
+            items.extend(flatten(v, new_key).items())
+        else:
+            items.append((new_key, v))
+
+    return dict(items)
+
+
+class OptParser(object):
+    def __init__(self):
+        desc = "Deploys a MAAS environment"
+        self._parser = argparse.ArgumentParser(description=desc)
+        self._args = None
+
+    def __getattr__(self, attr):
+        if attr not in self.__dict__:
+            if hasattr(self.args, attr):
+                return getattr(self.args, attr)
+
+        raise AttributeError("%r object has no attribute %r" %
+                             (self.__class__, attr))
+
+    def parse_args(self):
+        self._args = self._parser.parse_args()
+
+    @property
+    def args(self):
+        return self._args
+
+    @property
+    def parser(self):
+        return self._parser
+
+
+CONF = OptParser()

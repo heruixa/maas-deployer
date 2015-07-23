@@ -1,0 +1,3 @@
+instance-id: maas
+network-interfaces: |
+  {{network_config}}
