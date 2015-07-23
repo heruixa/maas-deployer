@@ -45,6 +45,16 @@ if __name__ == '__main__':
                                  'allow existing resources to be used '
                                  'otherwise an exception will be raised if '
                                  'any are found.')
+    cfg.parser.add_argument('--remote', required=False,
+                            default='qemu:///system',
+                            help='Specify a remote virsh connection URL for '
+                                 'communicating with the hypervisor. This '
+                                 'parameter takes the same values as the the '
+                                 'virsh command does. For example, a remote '
+                                 'qemu connection over ssh might be '
+                                 'qemu+ssh://user@somehypervisor/system. The '
+                                 'default value is the local system at '
+                                 'qemu:///system')
     cfg.parser.add_argument('target', metavar='target', type=str, nargs='?',
                             help='Target environment to run')
     cfg.parse_args()

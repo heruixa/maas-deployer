@@ -8,6 +8,7 @@
 
 import libvirt
 import logging
+import os
 import os.path
 import shutil
 import tempfile
@@ -44,7 +45,7 @@ class Instance(object):
         self.memory = memory
         self.pool = pool
         self.netboot = netboot
-        self.conn = libvirt.open()
+        self.conn = libvirt.open(cfg.remote)
 
     def _get_disk_param(self, image=None, pool=None, fmt='qcow2'):
         if pool is None:
@@ -103,6 +104,7 @@ class Instance(object):
                  create the domain.
         """
         cmd = ['virt-install',
+               '--connect', cfg.remote,
                '--name', self.name,
                '--ram', str(self.memory),
                '--vcpus', str(self.vcpus)]
@@ -209,7 +211,7 @@ class Instance(object):
 
             # Now that the XML has been dumped, need to import it into libvirt
             # using the virsh define command.
-            execc(['virsh', 'define', '--file', xml_file])
+            virsh(['define', '--file', xml_file])
         except CalledProcessError as e:
             log.error("Failed to define domain: %s", e.output)
             raise
@@ -221,7 +223,7 @@ class Instance(object):
         """
         domain_xml = ""
         try:
-            domain_xml, _ = execc(['virsh', 'dumpxml', self.name])
+            domain_xml, _ = virsh(['dumpxml', self.name])
         except CalledProcessError as e:
             log.error(str(e))
             domain_xml = ""
@@ -272,9 +274,6 @@ class CloudInstance(Instance):
         if 'node_group_ifaces' in kwargs:
             self.node_group_ifaces = kwargs['node_group_ifaces']
 
-        if 'nodes' in kwargs:
-            self.nodes = kwargs['nodes']
-
         self.apt_http_proxy = kwargs.get('apt_http_proxy')
 
     def _get_cloud_image_info(self):
@@ -305,7 +304,7 @@ class CloudInstance(Instance):
 
         url, fname = self._get_cloud_image_info()
         if not os.path.isfile(fname):
-            log.debug("Downloading {url}".format(url=url))
+            log.info("Downloading {url}".format(url=url))
             try:
                 execc(['wget', '-O', fname, url])
             except:
@@ -408,41 +407,6 @@ class CloudInstance(Instance):
 
         return public_key
 
-    def _get_nodes_info(self):
-        if not self.nodes:
-            return None
-
-        node_info = []
-        for node in self.nodes:
-            n = {'name': node['name'],
-                 'architecture': node['architecture'],
-                 'mac_addresses': node['mac_addresses']}
-
-            if 'tags' in node:
-                n['tags'] = node['tags']
-
-            node_info.append(n)
-
-            if 'power' not in node:
-                n['power_params'] = ""
-                continue
-
-            power_parms = ""
-            power_info = node['power']
-            if 'type' in power_info:
-                power_parms = ("power_resource_type=%s" % power_info['type'])
-            for key in power_info.keys():
-                if key == 'type':
-                    param_name = "power_type"
-                else:
-                    param_name = ("power_parameters_power_%s" % key)
-
-                power_parms = ("%s %s=%s" % (power_parms, param_name,
-                                             power_info[key]))
-            n['power_parms'] = power_parms
-
-        return node_info
-
     def _generate_user_data_file(self):
         """
         Generates the necessary user data files which are fed into
@@ -471,7 +435,6 @@ class CloudInstance(Instance):
             'user': self.user,
             'password': self.password,
             'node_group_ifaces': self.node_group_ifaces,
-            'nodes': self._get_nodes_info(),
         }
         content = template.load('config-maas.sh', parms)
         with open(config_maas_script, 'w+') as f:
@@ -514,12 +477,28 @@ class CloudInstance(Instance):
         # Generate user-data files.
         user_data_file = self._generate_user_data_file()
 
-        img_path = '/var/lib/libvirt/images/%s' % seed_name
-        execc(['sudo', 'cloud-localds', img_path, user_data_file,
+        log.debug('Creating local seed file')
+        img_path = os.path.join(working_dir, seed_name)
+        execc(['cloud-localds', img_path, user_data_file,
                meta_data_file])
+
+        stat = os.stat(img_path)
+
+        log.debug('Creating volume')
+        # Now create the volume locally and then upload the volume
+        virsh(['vol-create-as',
+               '--pool', self.pool,
+               '--name', seed_name,
+               '--capacity', str(stat.st_size),
+               '--format', 'raw'])
 
         storage_pool.refresh()
 
+        log.debug('Uploading seed %s to volume...', img_path)
+        virsh(['vol-upload', '--pool', self.pool, '--file', img_path,
+               '--vol', seed_name])
+
+        storage_pool.refresh()
         return disk_parm
 
     def _get_disks(self):

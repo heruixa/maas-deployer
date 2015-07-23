@@ -338,7 +338,7 @@ class DeploymentEngine(object):
 
         # Start juju domain
         if juju_node is not None:
-            util.execc(['virsh', 'start', juju_node])
+            util.virsh(['start', juju_node])
 
         self._wait_for_nodes_to_commission(client)
         log.debug("Done")

@@ -71,7 +71,7 @@ def exec_script_remote(user, host, script):
 
 
 def virsh(cmd, fatal=True):
-    _cmd = ['virsh']
+    _cmd = ['virsh', '-c', CONF.remote]
     _cmd.extend(cmd)
     return execc(_cmd, fatal=fatal)
 
