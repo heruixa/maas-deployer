@@ -425,11 +425,6 @@ class CloudInstance(Instance):
             f.write(content)
             f.flush()
 
-        # Copy over the ubuntu curtin file
-        write_files_cfg = 'cloud-init-write-files.cfg'
-        curtin_file = os.path.join(working_dir, write_files_cfg)
-        shutil.copy2('vmaas/templates/%s' % (write_files_cfg), curtin_file)
-
         # Generate the script file...
         config_maas_script = os.path.join(working_dir, 'config-maas.sh')
         parms = {
