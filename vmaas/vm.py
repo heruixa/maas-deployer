@@ -265,6 +265,7 @@ class CloudInstance(Instance):
         self.user = user
         self.password = password
         self.arch = arch
+
         if 'network_config' in kwargs:
             self.network_interfaces_content = kwargs['network_config']
 
@@ -273,6 +274,8 @@ class CloudInstance(Instance):
 
         if 'nodes' in kwargs:
             self.nodes = kwargs['nodes']
+
+        self.apt_http_proxy = kwargs.get('apt_http_proxy')
 
     def _get_cloud_image_info(self):
         """
@@ -449,7 +452,8 @@ class CloudInstance(Instance):
         parms = {
             'user': self.user,
             'password': self.password,
-            'ssh_key': self._get_ssh_key()
+            'ssh_key': self._get_ssh_key(),
+            'apt_http_proxy': self.apt_http_proxy
         }
         content = template.load('cloud-init.cfg', parms)
         with open(base_file, 'w+') as f:

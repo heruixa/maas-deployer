@@ -18,6 +18,9 @@ demo-maas:
         pool: default
         disk_size: 60G
 
+        # Apt http proxy setting(s)
+        apt_http_proxy:
+
         # Defines the IP Address that the configuration script will use to
         # to access the MAAS controller via SSH.
         ip_address: 192.168.122.2
