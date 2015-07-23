@@ -1,8 +1,8 @@
-"""
-Created on May 11, 2015
-
-@author: Billy Olsen
-"""
+#
+# Created on May 11, 2015
+#
+# @author: Billy Olsen
+#
 
 import copy
 import itertools
@@ -335,6 +335,24 @@ class DeploymentEngine(object):
         chown juju: %s; sudo mv %s /home/juju/%s
         """ % (JUJU_ENV_YAML, JUJU_ENV_YAML,  target)
         util.exec_script_remote(maas_config['user'], self.ip_addr, script)
+
+        if os.path.exists(util.USER_PRESEED_DIR) and \
+           os.path.isdir(util.USER_PRESEED_DIR):
+            log.debug('Copying over custom preseed files.')
+            cmd = ['scp', '-i', os.path.expanduser('~/.ssh/id_maas'),
+                   '-o', 'UserKnownHostsFile=/dev/null',
+                   '-o', 'StrictHostKeyChecking=no',
+                   '-r', util.USER_PRESEED_DIR,
+                   ('%s@%s:' % (maas_config['user'], self.ip_addr))]
+            util.execc(cmd)
+
+            # Move them to the maas dir
+            script = """
+            chown maas:maas preseeds/*
+            sudo mv preseeds/* /etc/maas/preseeds/
+            rmdir preseeds
+            """
+            util.exec_script_remote(maas_config['user'], self.ip_addr, script)
 
         # Start juju domain
         if juju_node is not None:

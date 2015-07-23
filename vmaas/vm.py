@@ -26,10 +26,10 @@ from vmaas.util import (
     execc,
     virsh,
     CONF as cfg,
+    USER_DATA_DIR,
 )
 
 
-DEFAULT_USER_DATA_DIR = os.path.join(os.getcwd(), 'user-files')
 log = logging.getLogger('vmaas.main')
 working_dir = tempfile.mkdtemp()
 
@@ -275,11 +275,6 @@ class CloudInstance(Instance):
         if 'node_group_ifaces' in kwargs:
             self.node_group_ifaces = kwargs['node_group_ifaces']
 
-        if 'user_data_dir' in kwargs:
-            self.user_data_dir = kwargs['user_data_dir']
-        else:
-            self.user_data_dir = DEFAULT_USER_DATA_DIR
-
         self.apt_http_proxy = kwargs.get('apt_http_proxy')
 
     def _get_cloud_image_info(self):
@@ -465,11 +460,14 @@ class CloudInstance(Instance):
         """
         user_files = []
 
-        if os.path.exists(self.user_data_dir) and \
-           os.path.isdir(self.user_data_dir):
+        if os.path.exists(USER_DATA_DIR) and \
+           os.path.isdir(USER_DATA_DIR):
             try:
-                for f in os.listdir(self.user_data_dir):
-                    src = os.path.join(self.user_data_dir, f)
+                for f in os.listdir(USER_DATA_DIR):
+                    src = os.path.join(USER_DATA_DIR, f)
+                    # Do not include directories
+                    if os.path.isdir(src):
+                        continue
                     dest = os.path.join(working_dir, 'user_data_%s' % f)
                     shutil.copy(src, dest)
                     user_files.append(dest)
