@@ -11,6 +11,9 @@ import subprocess
 
 log = logging.getLogger('vmaas.main')
 
+USER_DATA_DIR = os.path.join(os.getcwd(), 'user-files')
+USER_PRESEED_DIR = os.path.join(USER_DATA_DIR, 'preseeds')
+
 
 def execc(cmd, stdin=None, pipedcmds=None, fatal=True, suppress_stderr=False):
     """Execute command with subprocess.

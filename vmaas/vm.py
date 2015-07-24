@@ -26,6 +26,7 @@ from vmaas.util import (
     execc,
     virsh,
     CONF as cfg,
+    USER_DATA_DIR,
 )
 
 
@@ -424,11 +425,6 @@ class CloudInstance(Instance):
             f.write(content)
             f.flush()
 
-        # Copy over the ubuntu curtin file
-        write_files_cfg = 'cloud-init-write-files.cfg'
-        curtin_file = os.path.join(working_dir, write_files_cfg)
-        shutil.copy2('vmaas/templates/%s' % (write_files_cfg), curtin_file)
-
         # Generate the script file...
         config_maas_script = os.path.join(working_dir, 'config-maas.sh')
         parms = {
@@ -442,13 +438,39 @@ class CloudInstance(Instance):
             f.flush()
 
         user_data_file = os.path.join(working_dir, 'user-data.txt')
-        execc(['write-mime-multipart',
-               '--output={}'.format(user_data_file),
-               base_file,
-               '{}:text/x-shellscript'.format(config_maas_script),
-               curtin_file])
+        cmd = ['write-mime-multipart', '--output={}'.format(user_data_file),
+               base_file, '{}:text/x-shellscript'.format(config_maas_script)]
+
+        cmd = cmd + self._get_user_supplied_files()
+        log.debug('Generating mime-multipart user data file using: %s',
+                  str(cmd))
+        execc(cmd)
 
         return user_data_file
+
+    def _get_user_supplied_files(self):
+        """
+        Returns a list of the user supplied files to include in the cloud-init
+        user-data file.
+        """
+        user_files = []
+
+        if os.path.exists(USER_DATA_DIR) and \
+           os.path.isdir(USER_DATA_DIR):
+            try:
+                for f in os.listdir(USER_DATA_DIR):
+                    src = os.path.join(USER_DATA_DIR, f)
+                    # Do not include directories
+                    if os.path.isdir(src):
+                        continue
+                    dest = os.path.join(working_dir, 'user_data_%s' % f)
+                    shutil.copy(src, dest)
+                    user_files.append(dest)
+            except OSError as e:
+                log.error('Error copying user file: %s', str(e))
+                raise e
+
+        return user_files
 
     def create_seed_image(self):
         """
