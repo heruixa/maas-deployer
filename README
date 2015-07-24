@@ -6,7 +6,7 @@ The deployment.yaml file contains a description of the environments, with variou
 describing the different pieces of the environment.
 
 Upon completion of creating the virtual machines, etc, MAAS should be running at the
-configured IP address (http://{address}/MAAS) with the login of dtadmin/ubuntu.
+configured IP address (http://{address}/MAAS) with the login of ubuntu/ubuntu.
 
 To deploy:
 
