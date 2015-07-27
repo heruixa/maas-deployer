@@ -211,7 +211,7 @@ class DeploymentEngine(object):
         maas_config['ip_address'] = ip_address
         return ip_address
 
-    @util.retry_on_exception(5, exc_tuple=[CalledProcessError])
+    @util.retry_on_exception(exc_tuple=[CalledProcessError])
     def _get_api_key(self, maas_config):
         """Retrieves the API key"""
         if not self.api_key:

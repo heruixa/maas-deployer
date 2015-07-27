@@ -16,9 +16,9 @@ USER_DATA_DIR = os.path.join(os.getcwd(), 'user-files')
 USER_PRESEED_DIR = os.path.join(USER_DATA_DIR, 'preseeds')
 
 
-def retry_on_exception(max_retries, exc_tuple=None):
+def retry_on_exception(max_retries=5, exc_tuple=None):
     if not exc_tuple:
-        exc_tuple = (Exception)
+        exc_tuple = Exception
     else:
         # Ensure tuple otherwise they'll get ignored
         exc_tuple = tuple(exc_tuple)
@@ -30,7 +30,7 @@ def retry_on_exception(max_retries, exc_tuple=None):
             while True:
                 try:
                     return f(*args, **kwargs)
-                except exc_tuple:
+                except exc_tuple:  # pylint: disable=E0712
                     retries += 1
                     if retries >= max_retries:
                         log.debug("Command failed and max retries reached")
