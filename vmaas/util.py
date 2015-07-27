@@ -8,11 +8,40 @@ import collections
 import logging
 import os
 import subprocess
+import time
 
 log = logging.getLogger('vmaas.main')
 
 USER_DATA_DIR = os.path.join(os.getcwd(), 'user-files')
 USER_PRESEED_DIR = os.path.join(USER_DATA_DIR, 'preseeds')
+
+
+def retry_on_exception(max_retries, exc_tuple=None):
+    if not exc_tuple:
+        exc_tuple = (Exception)
+    else:
+        # Ensure tuple otherwise they'll get ignored
+        exc_tuple = tuple(exc_tuple)
+
+    def _retry_on_exception(f):
+        def __retry_on_exception(*args, **kwargs):
+            retries = 0
+            delay = 1
+            while True:
+                try:
+                    return f(*args, **kwargs)
+                except exc_tuple:
+                    retries += 1
+                    if retries >= max_retries:
+                        log.debug("Command failed and max retries reached")
+                        raise
+
+                    log.debug("Command failed - retrying in %ss" % (delay))
+                    time.sleep(delay)
+                    delay += 2
+
+        return __retry_on_exception
+    return _retry_on_exception
 
 
 def execc(cmd, stdin=None, pipedcmds=None, fatal=True, suppress_stderr=False):

@@ -55,7 +55,14 @@ class CLIDriver(MAASDriver):
                     else:
                         cmdarr.append("%s=%s" % (key, str(value)))
             stdout = execc(cmdarr)[0]
-            log.debug("Command executed successfully: output=%s", stdout)
+
+            display_stdout = stdout
+            if display_stdout and len(display_stdout) > 100:
+                display_stdout = "%s..." % display_stdout[:100]
+
+            log.debug("Command executed successfully: stdout='%s'",
+                      display_stdout)
+
             try:
                 output = json.loads(stdout)
             except ValueError:
