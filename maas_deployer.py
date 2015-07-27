@@ -81,7 +81,11 @@ if __name__ == '__main__':
         log.error("Unable to find target: %s", target)
         sys.exit(2)
 
-    engine = DeploymentEngine(config, target)
-    engine.deploy(target)
-
-    log.info("MAAS deployment completed.")
+    try:
+        engine = DeploymentEngine(config, target)
+        engine.deploy(target)
+    except:
+        log.exception("MAAS deployment failed.")
+        raise
+    else:
+        log.info("MAAS deployment completed.")
