@@ -28,3 +28,14 @@ class TestUtil(unittest.TestCase):
                     'baz_three_bee': 'b',
                     'baz_three_sea': 'c'}
         self.assertEquals(outmap, expected)
+
+    def test_retry_on_exception(self):
+        count = [0]
+
+        @util.retry_on_exception()
+        def foo():
+            count[0] += 1
+            raise Exception
+
+        self.assertRaises(Exception, foo)
+        self.assertEqual(count[0], 5)

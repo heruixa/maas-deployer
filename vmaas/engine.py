@@ -99,6 +99,47 @@ class DeploymentEngine(object):
         maas.create()
         return maas
 
+    def get_ssh_cmd(self, user, host, ssh_opts=None, remote_cmd=None):
+        cmd = ['ssh', '-i', os.path.expanduser('~/.ssh/id_maas'),
+               '-o', 'UserKnownHostsFile=/dev/null',
+               '-o', 'StrictHostKeyChecking=no']
+
+        if ssh_opts:
+            cmd += ssh_opts
+
+        cmd += [('%s@%s' % (user, host))]
+
+        if remote_cmd:
+            cmd += remote_cmd
+
+        return cmd
+
+    def get_scp_cmd(self, user, host, src, dst=None, scp_opts=None):
+        if not dst:
+            dst = ''
+
+        cmd = ['scp', '-i', os.path.expanduser('~/.ssh/id_maas'),
+               '-o', 'UserKnownHostsFile=/dev/null',
+               '-o', 'StrictHostKeyChecking=no']
+
+        if scp_opts:
+            cmd += scp_opts
+
+        cmd += [src, ('%s@%s:%s' % (user, host, dst))]
+        return cmd
+
+    def wait_for_vm_ready(self, user, host):
+        cmd = self.get_ssh_cmd(user, host, remote_cmd=['true'])
+        while True:
+            try:
+                util.execc(cmd, suppress_stderr=True)
+                log.debug("MAAS vm started.")
+                break
+            except CalledProcessError:
+                log.debug("Waiting for MAAS vm to start.")
+                time.sleep(1)
+                continue
+
     def wait_for_maas_installation(self, maas_config):
         """
         Polls the ssh console to wait for the MAAS installation to
@@ -115,20 +156,13 @@ class DeploymentEngine(object):
             curr_action = "Installing MAAS via cloud-init"
             spinner = itertools.cycle(['|', '/', '-', '\\'])
 
-            try:
-                util.execc(['ping', '-c', '1', '-w', '1', '-W', '1', maas_ip])
-            except CalledProcessError:
-                delay = 30
-                log.debug("Waiting %s secs before logging into MAAS vm",
-                          (delay))
-                time.sleep(delay)
-
+            self.wait_for_vm_ready(maas_config['user'], maas_ip)
             log.debug("Logging into maas host '%s'", (maas_ip))
-            cmd = ['ssh', '-i', os.path.expanduser('~/.ssh/id_maas'),
-                   '-o', 'UserKnownHostsFile=/dev/null',
-                   '-o', 'StrictHostKeyChecking=no',
-                   ('%s@%s' % (maas_config['user'], maas_ip)),
-                   'sudo', 'tail', '-F', '/var/log/cloud-init-output.log']
+
+            remote_cmd = ['sudo', 'tail', '-F',
+                          '/var/log/cloud-init-output.log']
+            cmd = self.get_ssh_cmd(maas_config['user'], maas_ip,
+                                   remote_cmd=remote_cmd)
             process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
             for c in iter(lambda: process.stdout.readline(), ''):
                 c = c.strip()
@@ -177,18 +211,17 @@ class DeploymentEngine(object):
         maas_config['ip_address'] = ip_address
         return ip_address
 
+    @util.retry_on_exception(exc_tuple=[CalledProcessError])
     def _get_api_key(self, maas_config):
         """Retrieves the API key"""
         if not self.api_key:
             log.debug("Fetching MAAS api key")
             user = maas_config['user']
-            cmd = ['ssh', '-i', os.path.expanduser('~/.ssh/id_maas'),
-                   '-o', 'UserKnownHostsFile=/dev/null',
-                   '-o', 'StrictHostKeyChecking=no',
-                   ('%s@%s' % (user, self.ip_addr)),
-                   'sudo', 'maas-region-admin', 'apikey',
-                   '--username', user]
-            self.api_key = subprocess.check_output(cmd).strip()
+            remote_cmd = ['sudo', 'maas-region-admin', 'apikey', '--username',
+                          user]
+            cmd = self.get_ssh_cmd(maas_config['user'], self.ip_addr,
+                                   remote_cmd=remote_cmd)
+            self.api_key = util.execc(cmd)
 
         return self.api_key
 
@@ -325,10 +358,8 @@ class DeploymentEngine(object):
         """ % (target)
         util.exec_script_remote(maas_config['user'], self.ip_addr, script)
 
-        cmd = ['scp', '-i', os.path.expanduser('~/.ssh/id_maas'),
-               '-o', 'UserKnownHostsFile=/dev/null',
-               '-o', 'StrictHostKeyChecking=no', JUJU_ENV_YAML,
-               ('%s@%s:' % (maas_config['user'], self.ip_addr))]
+        cmd = self.get_scp_cmd(maas_config['user'], self.ip_addr,
+                               JUJU_ENV_YAML)
         util.execc(cmd)
 
         script = """
@@ -339,11 +370,8 @@ class DeploymentEngine(object):
         if os.path.exists(util.USER_PRESEED_DIR) and \
            os.path.isdir(util.USER_PRESEED_DIR):
             log.debug('Copying over custom preseed files.')
-            cmd = ['scp', '-i', os.path.expanduser('~/.ssh/id_maas'),
-                   '-o', 'UserKnownHostsFile=/dev/null',
-                   '-o', 'StrictHostKeyChecking=no',
-                   '-r', util.USER_PRESEED_DIR,
-                   ('%s@%s:' % (maas_config['user'], self.ip_addr))]
+            cmd = self.get_scp_cmd(maas_config['user'], self.ip_addr,
+                                   util.USER_PRESEED_DIR, scp_opts=['-r'])
             util.execc(cmd)
 
             # Move them to the maas dir
