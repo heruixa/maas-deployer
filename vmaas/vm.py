@@ -97,7 +97,7 @@ class Instance(object):
         return [("size=%s,format=qcow2,bus=virtio,io=native,pool=%s" %
                  (size, self.pool))]
 
-    def _generate_command(self):
+    def _get_virsh_command(self, extras=None):
         """
         Generates the virt-install command to use for creating the domain.
 
@@ -120,6 +120,10 @@ class Instance(object):
             cmd.extend(['--boot', 'network,hd,menu=off'])
 
         cmd.extend(['--noautoconsole', '--vnc'])
+
+        if extras:
+            cmd += extras
+
         return cmd
 
     def _domain_exists(self, name):
@@ -163,11 +167,9 @@ class Instance(object):
                 raise MAASDeployerResourceAlreadyExists(resource=self.name,
                                                         resource_type='domain')
 
-        cmd = self._generate_command()
-        cmd = ['sudo'] + cmd
         try:
             log.debug("Creating domain '%s'", (self.name))
-            execc(cmd)
+            execc(self._get_virsh_command())
         except CalledProcessError:
             log.error("Failed to create vm - cleaning up")
             # Cleanup (non-fatal since instance may not have been created)
@@ -196,19 +198,17 @@ class Instance(object):
                 raise MAASDeployerResourceAlreadyExists(resource=self.name,
                                                         resource_type='domain')
 
-        cmd = self._generate_command()
         # By default, virt-install will create the domain and start it for
         # installation. To only define the domain, the xml of the domain will
         # be dumped. Any disks which would be created by the virt-install cmd
         # will still be created during the command execution, but the domain
         # will not be created.
-        cmd.extend(['--print-xml'])
-        cmd = ['sudo'] + cmd
+        cmd = self._get_virsh_command(extras=['--print-xml'])
         xml_file = ('/tmp/%s.xml' % self.name)
 
         try:
             log.debug("Creating domain '%s'", (self.name))
-            execc(cmd, pipedcmds=[['sudo', 'tee', xml_file]])
+            execc(cmd, pipedcmds=[['tee', xml_file]])
 
             # Now that the XML has been dumped, need to import it into libvirt
             # using the virsh define command.
@@ -546,12 +546,9 @@ class CloudInstance(Instance):
                 raise MAASDeployerResourceAlreadyExists(resource=self.name,
                                                         resource_type='domain')
 
-        cmd = self._generate_command()
-        cmd = ['sudo'] + cmd
-        cmd.extend(['--import'])
         try:
             log.debug("Creating domain '%s'", (self.name))
-            execc(cmd)
+            execc(self._get_virsh_command(extras=['--import']))
         except CalledProcessError:
             log.error("Failed to create vm - cleaning up")
             # Cleanup (non-fatal since instance may not have been created)
