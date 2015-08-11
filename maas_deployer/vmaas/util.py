@@ -36,7 +36,7 @@ def retry_on_exception(max_retries=5, exc_tuple=None):
                         log.debug("Command failed and max retries reached")
                         raise
 
-                    log.debug("Command failed - retrying in %ss" % (delay))
+                    log.debug("Command failed - retrying in %ss", (delay))
                     time.sleep(delay)
                     delay += 2
 

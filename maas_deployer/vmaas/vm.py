@@ -10,6 +10,7 @@ import libvirt
 import logging
 import os
 import os.path
+import re
 import shutil
 import tempfile
 import time
@@ -21,6 +22,7 @@ import maas_deployer.vmaas.template as template
 
 from maas_deployer.vmaas.exception import (
     MAASDeployerResourceAlreadyExists,
+    MAASDeployerPoolNotFound,
 )
 from maas_deployer.vmaas.util import (
     execc,
@@ -47,6 +49,15 @@ class Instance(object):
         self.pool = pool
         self.netboot = netboot
         self.conn = libvirt.open(cfg.remote)
+
+        self.assert_pool_exists(pool)
+
+    @staticmethod
+    def assert_pool_exists(pool='default'):
+        out, _ = virsh(['pool-list'])
+        m = re.search(r"\s%s\s" % pool, out)
+        if not m:
+            raise MAASDeployerPoolNotFound(pool)
 
     def _get_disk_param(self, image=None, pool=None, fmt='qcow2'):
         if pool is None:

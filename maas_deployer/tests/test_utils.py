@@ -30,8 +30,8 @@ class TestUtil(unittest.TestCase):
                     'baz_three_sea': 'c'}
         self.assertEquals(outmap, expected)
 
-    @patch('time.sleep')
-    def test_retry_on_exception(self, mock_sleep):
+    @patch('time.sleep', lambda: None)
+    def test_retry_on_exception(self):
         count = [0]
 
         @util.retry_on_exception()
