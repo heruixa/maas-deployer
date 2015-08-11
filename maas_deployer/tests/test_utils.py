@@ -4,6 +4,7 @@
 
 import unittest
 from maas_deployer.vmaas import util
+from mock import patch
 
 
 class TestUtil(unittest.TestCase):
@@ -29,7 +30,8 @@ class TestUtil(unittest.TestCase):
                     'baz_three_sea': 'c'}
         self.assertEquals(outmap, expected)
 
-    def test_retry_on_exception(self):
+    @patch('time.sleep')
+    def test_retry_on_exception(self, mock_sleep):
         count = [0]
 
         @util.retry_on_exception()
