@@ -14,13 +14,13 @@ from subprocess import CalledProcessError
 import sys
 import time
 
-from vmaas import (
+from maas_deployer.vmaas import (
     vm,
     util,
     template,
 )
 
-from vmaas.maasclient import (
+from maas_deployer.vmaas.maasclient import (
     bootimages,
     MAASClient,
     Tag,

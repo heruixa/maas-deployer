@@ -22,11 +22,11 @@ handler.setFormatter(formatter)
 log.addHandler(handler)
 
 
-from vmaas.engine import DeploymentEngine
-from vmaas.util import CONF as cfg
+from maas_deployer.vmaas.engine import DeploymentEngine
+from maas_deployer.vmaas.util import CONF as cfg
 
 
-if __name__ == '__main__':
+def main():
     cfg.parser.add_argument('-c', '--config', type=str,
                             default='deployment.yaml', required=False)
     cfg.parser.add_argument('-d', '--debug', action='store_true',
@@ -89,3 +89,7 @@ if __name__ == '__main__':
         raise
     else:
         log.info("MAAS deployment completed.")
+
+
+if __name__ == '__main__':
+    main()

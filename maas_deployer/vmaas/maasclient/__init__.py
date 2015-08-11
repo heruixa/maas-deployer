@@ -5,8 +5,8 @@ Created on May 14, 2015
 '''
 import logging
 
-from vmaas.maasclient.apidriver import APIDriver
-from vmaas.maasclient.clidriver import SSHDriver
+from maas_deployer.vmaas.maasclient.apidriver import APIDriver
+from maas_deployer.vmaas.maasclient.clidriver import SSHDriver
 
 log = logging.getLogger('vmaas.main')
 
