@@ -1,22 +1,30 @@
-This tool is used to deploy a virtual MAAS server, a virtual juju bootstrap node,
-register physical hardware nodes, and kick off the Juju deployment of an openstack
-cloud within the MAAS environment.
+This tool is used to deploy a virtual MAAS server, a virtual Juju bootstrap
+node, register physical hardware nodes, and kick off the Juju deployment of an
+Openstack cloud within the MAAS environment.
 
-The deployment.yaml file contains a description of the environments, with various parts
-describing the different pieces of the environment.
+The deployment.yaml file contains a description of the environments, with
+various parts describing the different pieces of the environment.
 
-Upon completion of creating the virtual machines, etc, MAAS should be running at the
-configured IP address (http://{address}/MAAS) with the login of ubuntu/ubuntu.
+Upon completion of creating the virtual machines, etc, MAAS should be running
+at the configured IP address (http://{address}/MAAS).
 
-To deploy:
 
+Install:
+
+  sudo add-apt-repository ppa:maas-deployers/stable
+  sudo apt-get update
   sudo apt-get install maas-deployer
-  maas-deployer -c deployment.yaml  # creates juju bootstrap and maas virtual machines
 
 
-To cleanup and try again:
+Deploy:
 
-  maas-deployer -c deployment.yaml --force  # assumes default node names in sample deployment file
+  # NOTE: assumes you have created yaml describing your cluster
+  maas-deployer -c deployment.yaml
+
+
+Cleanup and try again:
+
+  maas-deployer -c deployment.yaml --force
 
 
 What should work:
@@ -27,6 +35,3 @@ What should work:
  - nodes tagged appropriately (api, bootstrap, etc)
  - environments.yaml file generated for juju environment
  - Nodes are commissioned and ready
-
-Known Issues:
- - Juju scripts are not started automatically yet
