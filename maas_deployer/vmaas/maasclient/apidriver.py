@@ -7,8 +7,8 @@ import json
 import logging
 
 from apiclient import maas_client as maas
-from vmaas.maasclient.driver import MAASDriver
-from vmaas.maasclient.driver import Response
+from maas_deployer.vmaas.maasclient.driver import MAASDriver
+from maas_deployer.vmaas.maasclient.driver import Response
 from urllib2 import HTTPError
 
 log = logging.getLogger('vmaas.main')

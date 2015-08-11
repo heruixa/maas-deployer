@@ -5,7 +5,7 @@
 from jinja2 import Environment, PackageLoader
 
 env = Environment()
-env.loader = PackageLoader('vmaas', 'templates')
+env.loader = PackageLoader('maas_deployer.vmaas', 'templates')
 
 
 def load(name, params):

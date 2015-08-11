@@ -3,7 +3,7 @@
 #
 
 import unittest
-from vmaas import util
+from maas_deployer.vmaas import util
 
 
 class TestUtil(unittest.TestCase):

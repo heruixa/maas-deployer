@@ -12,12 +12,12 @@ from subprocess import (
     CalledProcessError,
 )
 
-from vmaas.util import (
+from maas_deployer.vmaas.util import (
     execc,
     flatten,
 )
-from vmaas.maasclient.driver import MAASDriver
-from vmaas.maasclient.driver import Response
+from maas_deployer.vmaas.maasclient.driver import MAASDriver
+from maas_deployer.vmaas.maasclient.driver import Response
 
 log = logging.getLogger('vmaas.main')
 

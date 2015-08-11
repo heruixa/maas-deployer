@@ -17,12 +17,12 @@ import time
 from lxml import etree
 from subprocess import CalledProcessError
 
-import vmaas.template as template
+import maas_deployer.vmaas.template as template
 
-from vmaas.exception import (
+from maas_deployer.vmaas.exception import (
     MAASDeployerResourceAlreadyExists,
 )
-from vmaas.util import (
+from maas_deployer.vmaas.util import (
     execc,
     virsh,
     CONF as cfg,
