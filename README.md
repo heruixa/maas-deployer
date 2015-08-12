@@ -51,6 +51,23 @@ A successful run of MAAS deployer should give you the following:
 
   - Nodes commissioned and ready
 
+# Deploying charms
+
+The controller vm will have a pre-configured Juju environments file uploaded to
+/home/juju/.juju/environments.yaml which can used by logging in and switching
+to the juju user:
+
+  sudo su - juju
+  juju bootstrap --constraints="tags=bootstrap"
+
+Or alternatively you could just copy it over to your $HOME e.g.
+
+  sudo cp -R /home/juju/.juju ~
+  sudo chown -R <user>: .juju
+  juju bootstrap --constraints="tags=bootstrap"
+
+Once the environment is bootstrapped you deploy charms as you like.
+
 # Support
 
 Please raise bugs for issues found with this tool by visiting:
