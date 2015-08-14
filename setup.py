@@ -4,7 +4,7 @@ setup(
     name="maas-deployer",
     version="0.0.1",
     description="A tool for deploying MAAS clusters using virtual machines.",
-    long_description=open("README").read(),
+    long_description=open("README.md").read(),
     author="MAAS Deployers",
     author_email="maas-deployers@lists.launchpad.net",
     url="https://launchpad.net/maas-deployer",
