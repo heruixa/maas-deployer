@@ -22,3 +22,11 @@ class MAASDeployerResourceAlreadyExists(MAASDeployerBaseException):
                    (resource, resource_type))
 
         super(MAASDeployerResourceAlreadyExists, self).__init__(msg)
+
+
+class MAASDeployerPoolNotFound(MAASDeployerBaseException):
+    def __init__(self, pool):
+        msg = ("Pool '%s' not found. Please ensure this pool exists prior to "
+               "running the deployer" % (pool))
+
+        super(MAASDeployerPoolNotFound, self).__init__(msg)

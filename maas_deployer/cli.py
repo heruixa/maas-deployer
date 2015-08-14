@@ -71,7 +71,9 @@ def main():
         log.error("Unable to find config file %s", cfg.config)
         sys.exit(1)
 
-    config = yaml.safe_load(file(cfg.config))
+    with open(cfg.config, 'r') as fd:
+        config = yaml.safe_load(fd)
+
     target = cfg.target
 
     if target is None and len(config.keys()) == 1:

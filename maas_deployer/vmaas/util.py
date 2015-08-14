@@ -30,13 +30,13 @@ def retry_on_exception(max_retries=5, exc_tuple=None):
             while True:
                 try:
                     return f(*args, **kwargs)
-                except exc_tuple:  # pylint: disable=E0712
+                except exc_tuple:  # pylint: disable=E0712,W0703
                     retries += 1
                     if retries >= max_retries:
                         log.debug("Command failed and max retries reached")
                         raise
 
-                    log.debug("Command failed - retrying in %ss" % (delay))
+                    log.debug("Command failed - retrying in %ss", (delay))
                     time.sleep(delay)
                     delay += 2
 
