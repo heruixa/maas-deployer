@@ -490,7 +490,7 @@ class CloudInstance(Instance):
         log.debug("Creating cloud-init seed image for MAAS...")
         storage_pool = self.conn.storagePoolLookupByName(self.pool)
         disk_parm = self._get_disk_param(image='{}-seed.img'.format(self.name),
-                                         pool='default', fmt='raw')
+                                         pool=self.pool, fmt='raw')
 
         seed_name = '%s-seed.img' % self.name
         existing_vols = [v.name() for v in storage_pool.listAllVolumes()]
