@@ -53,15 +53,15 @@ class DeploymentEngine(object):
 
         maas_config = config.get('maas')
         nodes = maas_config.get('nodes', [])
-        if nodes:
-            nodes.append(juju_node)
-            maas_config['nodes'] = nodes
-        else:
+        if not nodes:
             log.warning("No MAAS cluster nodes provided")
+            maas_config['nodes'] = nodes
+        nodes.append(juju_node)
 
         self.deploy_maas_node(maas_config)
 
         self.wait_for_maas_installation(maas_config)
+        self.configure_maas_virsh_control(maas_config)
         self.api_key = self._get_api_key(maas_config)
         self.wait_for_import_boot_images(maas_config)
 
@@ -76,6 +76,9 @@ class DeploymentEngine(object):
             'architecture': 'amd64/generic',
             'mac_addresses': [x for x in juju_domain.mac_addresses],
             'tags': 'bootstrap',
+            'power_type': 'virsh',
+            'power_parameters_power_address': util.CONF.remote,
+            'power_parameters_power_id': juju_domain.name,
         }
 
         return node
@@ -222,8 +225,51 @@ class DeploymentEngine(object):
             cmd = self.get_ssh_cmd(maas_config['user'], self.ip_addr,
                                    remote_cmd=remote_cmd)
             self.api_key = util.execc(cmd)
+            if isinstance(self.api_key, tuple):
+                self.api_key = self.api_key[0]
 
         return self.api_key
+
+    def configure_maas_virsh_control(self, maas_config):
+        """Configure the virsh control SSH keys"""
+        import pdb; pdb.set_trace()
+        if 'virsh_keys' not in maas_config:
+            log.debug('No virsh_keys specified in maas_config.')
+            return
+
+        KEY_TO_FILE_MAP = {
+            'rsa_priv_key': 'id_rsa',
+            'rsa_pub_key': 'id_rsa.pub',
+            'dsa_priv_key': 'id_dsa',
+            'dsa_pub_key': 'id_dsa.pub',
+        }
+
+        # First, make the remote directory.
+        remote_cmd = ['mkdir', 'virsh-keys']
+        cmd = self.get_ssh_cmd(maas_config['user'], self.ip_addr,
+                               remote_cmd=remote_cmd)
+        util.execc(cmd)
+
+        virsh_keys = maas_config['virsh_keys']
+        for key, value in virsh_keys.iteritems():
+            try:
+                #wolsen
+                dest_file = 'virsh-keys/%s' % KEY_TO_FILE_MAP[key]
+                cmd = self.get_scp_cmd(maas_config['user'], self.ip_addr,
+                                       os.path.expanduser(value), dest_file)
+                util.execc(cmd)
+            except:
+                log.error("Error reading from %s file" % value)
+
+        # Now move them over to the maas user.
+        script = """
+        sudo mv ~/virsh-keys/* /home/maas/.ssh
+        sudo chown -R maas:maas /home/maas/.ssh
+        sudo chmod 700 /home/maas/.ssh
+        sudo find /home/maas/.ssh -name id* | xargs sudo chmod 600
+        rmdir ~/virsh-keys
+        """
+        util.exec_script_remote(maas_config['user'], self.ip_addr, script)
 
     def wait_for_import_boot_images(self, maas_config):
         """Polls the import boot image status."""
@@ -381,10 +427,6 @@ class DeploymentEngine(object):
             rmdir preseeds
             """
             util.exec_script_remote(maas_config['user'], self.ip_addr, script)
-
-        # Start juju domain
-        if juju_node is not None:
-            util.virsh(['start', juju_node])
 
         self._wait_for_nodes_to_commission(client)
         log.debug("Done")
