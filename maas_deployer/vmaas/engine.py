@@ -253,7 +253,6 @@ class DeploymentEngine(object):
         virsh_keys = maas_config['virsh_keys']
         for key, value in virsh_keys.iteritems():
             try:
-                #wolsen
                 dest_file = 'virsh-keys/%s' % KEY_TO_FILE_MAP[key]
                 cmd = self.get_scp_cmd(maas_config['user'], self.ip_addr,
                                        os.path.expanduser(value), dest_file)
