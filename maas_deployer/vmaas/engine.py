@@ -256,11 +256,12 @@ class DeploymentEngine(object):
 
         log.debug("\r\nBoot image importing has completed.")
 
-    def _get_node_tags(self, node):
+    @staticmethod
+    def _get_node_tags(node):
         """Tags value is expected to be a comma-separated list of tag names"""
         tags = node.get('tags', '').split()
         # Sanitise
-        return map[str.strip, tags]
+        return map(str.strip, tags)
 
     def _get_juju_nodename(self, nodes):
         """Get name of Juju bootstrap node"""
@@ -281,7 +282,7 @@ class DeploymentEngine(object):
         existing_tags = client.get_tags()
 
         # Sanitise
-        existing_tags = map[str.strip, existing_tags]
+        existing_tags = map(str.strip, existing_tags)
 
         to_create = set(tags) - set([t.name for t in existing_tags])
         for tag in to_create:
