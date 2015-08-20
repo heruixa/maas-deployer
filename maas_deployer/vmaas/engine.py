@@ -224,9 +224,7 @@ class DeploymentEngine(object):
                           user]
             cmd = self.get_ssh_cmd(maas_config['user'], self.ip_addr,
                                    remote_cmd=remote_cmd)
-            self.api_key = util.execc(cmd)
-            if isinstance(self.api_key, tuple):
-                self.api_key = self.api_key[0]
+            self.api_key, _ = util.execc(cmd)
 
         return self.api_key
 
