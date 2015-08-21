@@ -9,10 +9,11 @@ import itertools
 import json
 import logging
 import os
-import subprocess
-from subprocess import CalledProcessError
 import sys
 import time
+
+from subprocess import CalledProcessError
+
 
 from maas_deployer.vmaas import (
     vm,
