@@ -9,10 +9,11 @@ import itertools
 import json
 import logging
 import os
-import subprocess
-from subprocess import CalledProcessError
 import sys
 import time
+
+from subprocess import CalledProcessError
+
 
 from maas_deployer.vmaas import (
     vm,
@@ -140,53 +141,49 @@ class DeploymentEngine(object):
                 time.sleep(1)
                 continue
 
+    def _get_api_key_from_cloudinit(self, user, addr):
+        # Now get the api key
+        rcmd = [r'grep "+ apikey=" %s| tail -n 1| sed -r "s/.+=(.+)/\1/"' %
+                ('/var/log/cloud-init-output.log')]
+        cmd = self.get_ssh_cmd(user, addr, remote_cmd=rcmd)
+        stdout, _ = util.execc(cmd=cmd)
+        self.api_key = stdout
+
+    @util.retry_on_exception(exc_tuple=[CalledProcessError])
+    def wait_for_cloudinit_finished(self, maas_config, maas_ip):
+        log.debug("Logging into maas host '%s'", (maas_ip))
+        # Now get the api key
+        msg = "MAAS controller is now configured"
+        cloudinitlog = '/var/log/cloud-init-output.log'
+        rcmd = ['grep "%s" %s' %
+                (msg, cloudinitlog)]
+        cmd = self.get_ssh_cmd(maas_config['user'], maas_ip,
+                               remote_cmd=rcmd)
+        out, err = util.execc(cmd=cmd, fatal=False)
+        if out and not err:
+            self._get_api_key_from_cloudinit(maas_config['user'], maas_ip)
+            return
+
+        log.info("Waiting for cloud-init to complete - this usually takes "
+                 "several minutes")
+        rcmd = ['grep -m 1 "%s" <(sudo tail -n 1 -F %s)' %
+                (msg, cloudinitlog)]
+        cmd = self.get_ssh_cmd(maas_config['user'], maas_ip,
+                               remote_cmd=rcmd)
+        util.execc(cmd=cmd)
+        self._get_api_key_from_cloudinit(maas_config['user'], maas_ip)
+
     def wait_for_maas_installation(self, maas_config):
         """
         Polls the ssh console to wait for the MAAS installation to
         complete.
         """
-        finished = False
-
         log.debug("Waiting for MAAS vm to come up for ssh..")
         maas_ip = self._get_maas_ip_address(maas_config)
 
         self.ip_addr = maas_ip
-
-        try:
-            curr_action = "Installing MAAS via cloud-init"
-            spinner = itertools.cycle(['|', '/', '-', '\\'])
-
-            self.wait_for_vm_ready(maas_config['user'], maas_ip)
-            log.debug("Logging into maas host '%s'", (maas_ip))
-
-            remote_cmd = ['sudo', 'tail', '-F',
-                          '/var/log/cloud-init-output.log']
-            cmd = self.get_ssh_cmd(maas_config['user'], maas_ip,
-                                   remote_cmd=remote_cmd)
-            process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-            for c in iter(lambda: process.stdout.readline(), ''):
-                c = c.strip()
-                if c.startswith('+ apikey='):
-                    self.api_key = c.split('=')[1]
-
-                if c.find('MAAS controller is now configured') >= 0:
-                    sys.stdout.write(' %s ... Done\r\n' % curr_action)
-                    sys.stdout.flush()
-                    finished = True
-                    process.terminate()
-                    break
-
-                # Display a spinner to show that progress is being made.
-                sys.stdout.write(' %s ... %s' % (curr_action,
-                                                 spinner.next()))
-                sys.stdout.flush()
-                sys.stdout.write('\r')
-        except CalledProcessError as e:
-            # An exception when process.terminate() is invoked because
-            # virsh console will return -1. A pty is required to
-            # gracefully exit, so we work around it
-            if not finished:
-                raise e
+        self.wait_for_vm_ready(maas_config['user'], maas_ip)
+        self.wait_for_cloudinit_finished(maas_config, maas_ip)
 
     def _get_maas_ip_address(self, maas_config):
         """Attempts to get the IP address from the maas_config dict.
