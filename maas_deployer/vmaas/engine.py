@@ -343,8 +343,6 @@ class DeploymentEngine(object):
                 requested_address = sticky_ip_addr.get('requested_address',
                                                        None)
 
-                # log.debug("Claiming sticky IP address %s",
-                #           requested_address)
                 fn = client.claim_sticky_ip_address
                 if not fn(maas_node, requested_address, mac_address):
                     log.warning(">> Failed to claim sticky ip address")
