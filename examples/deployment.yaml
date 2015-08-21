@@ -33,6 +33,8 @@ demo-maas:
             main_archive: http://archive.ubuntu.com/ubuntu
             upstream_dns: 192.168.122.1
             maas_name: automaas
+            # kernel_opts: "console=tty0 console=ttyS1,115200n8"
+            # ntp_server: ntp.ubuntu.com
 
         # This section is used to define the networking parameters for when
         # the node first comes up. It is fed into the meta-data cloud-init
