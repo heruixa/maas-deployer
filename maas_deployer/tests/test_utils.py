@@ -7,13 +7,9 @@ import unittest
 from maas_deployer.vmaas import util
 from mock import patch
 
-
-class UnitTestException(Exception):
-    """
-    Use this in tests rather than generic Exception to avoid unexpectedly
-    catching exceptions that also inherit from Exception.
-    """
-    pass
+from utils import (
+    UnitTestException,
+)
 
 
 class TestUtil(unittest.TestCase):

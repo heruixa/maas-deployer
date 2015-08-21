@@ -253,6 +253,97 @@ class DeploymentEngine(object):
 
         log.debug("\r\nBoot image importing has completed.")
 
+    @staticmethod
+    def _get_node_tags(node):
+        """Tags value is expected to be a comma-separated list of tag names"""
+        tags = node.get('tags', '').split()
+        # Sanitise
+        return map(str.strip, tags)
+
+    def _get_juju_nodename(self, nodes):
+        """Get name of Juju bootstrap node"""
+        for node in nodes:
+            if 'bootstrap' in self._get_node_tags(node):
+                return node['name']
+
+        log.debug("No Juju bootstrap node description found with tag "
+                  "'bootstrap'")
+        return None
+
+    def _create_maas_tags(self, client, nodes):
+        log.debug("Creating tags...")
+        tags = []
+        for n in nodes:
+            tags += self._get_node_tags(n)
+
+        existing_tags = client.get_tags()
+
+        # Sanitise
+        existing_tags = map(str.strip, existing_tags)
+
+        to_create = set(tags) - set([t.name for t in existing_tags])
+        for tag in to_create:
+            client.create_tag(Tag({'name': tag}))
+
+    def _add_tags_to_node(self, client, node):
+        for tag in self._get_node_tags(node):
+            # log.debug("Tagging node with tag %s", tag)
+            if not client.add_tag(tag, node):
+                log.warning(">> Failed to tag node %s with %s",
+                            node['name'], tag)
+
+    def _create_maas_nodes(self, client, nodes):
+        """Add nodes to MAAS cluster"""
+        if not nodes:
+            log.info("No cluster nodes provided")
+            return
+
+        self._create_maas_tags(client, nodes)
+
+        log.debug("Adding nodes to deployment...")
+        existing_nodes = client.get_nodes()
+
+        for node in nodes:
+            if 'power' in node:
+                power_params = node['power']
+                node['power_type'] = power_params['type']
+                del node['power']
+
+                node['power_parameters'] = \
+                    self.get_power_parameters(power_params)
+
+            # Note, the hostname returned by MAAS for the existing nodes
+            # uses the hostname.domainname for the nodegroup (cluster).
+            existing_maas_node = None
+            for n in existing_nodes:
+                if n.hostname.startswith("%s." % node['name']):
+                    existing_maas_node = n
+                    break
+
+            if existing_maas_node:
+                log.debug("Node %s is already in MAAS.", node['name'])
+                maas_node = existing_maas_node
+            else:
+                log.debug("Adding node %s ...", node['name'])
+                node['hostname'] = node['name']
+                maas_node = client.create_node(node)
+
+            if maas_node is None:
+                log.warning(">> Failed to add node %s ", node['name'])
+                continue
+
+            self._add_tags_to_node(client, maas_node)
+
+            if 'sticky_ip_address' in node:
+                sticky_ip_addr = node['sticky_ip_address']
+                mac_address = sticky_ip_addr.get('mac_address', None)
+                requested_address = sticky_ip_addr.get('requested_address',
+                                                       None)
+
+                fn = client.claim_sticky_ip_address
+                if not fn(maas_node, requested_address, mac_address):
+                    log.warning(">> Failed to claim sticky ip address")
+
     def configure_maas(self, maas_config):
         """
         Configures the MAAS instance.
@@ -279,72 +370,8 @@ class DeploymentEngine(object):
                 log.warning("Unable to create nodegroup interface: %s",
                             iface)
 
-        juju_node = None
         nodes = maas_config.get('nodes', [])
-        if nodes:
-            log.debug("Creating tags...")
-            tags = [n['tags'] for n in nodes if 'tags' in n]
-            existing_tags = client.get_tags()
-            to_create = set(tags) - set([t.name for t in existing_tags])
-            for tag in to_create:
-                client.create_tag(Tag({'name': tag}))
-
-            log.debug("Adding nodes to deployment...")
-            existing_nodes = client.get_nodes()
-
-            for node in nodes:
-                if 'power' in node:
-                    power_params = node['power']
-                    node['power_type'] = power_params['type']
-                    del node['power']
-
-                    node['power_parameters'] = \
-                        self.get_power_parameters(power_params)
-
-                # Note, the hostname returned by MAAS for the existing nodes
-                # uses the hostname.domainname for the nodegroup (cluster).
-                existing_maas_node = None
-                for n in existing_nodes:
-                    if n.hostname.startswith("%s." % node['name']):
-                        existing_maas_node = n
-                        break
-
-                if existing_maas_node:
-                    log.debug("Node %s is already in MAAS.", node['name'])
-                    maas_node = existing_maas_node
-                else:
-                    log.debug("Adding node %s ...", node['name'])
-                    node['hostname'] = node['name']
-                    maas_node = client.create_node(node)
-
-                if maas_node is None:
-                    log.warning(">> Failed to add node %s ", node['name'])
-                    continue
-
-                juju_node = None
-                if 'tags' in node:
-                    tag = node['tags']
-                    if tag == 'bootstrap':
-                        juju_node = node['name']
-
-                    # log.debug("Tagging node with tag %s", tag)
-                    if not client.add_tag(tag, maas_node):
-                        log.warning(">> Failed to tag node %s with %s",
-                                    node['name'], tag)
-
-                if 'sticky_ip_address' in node:
-                    sticky_ip_addr = node['sticky_ip_address']
-                    mac_address = sticky_ip_addr.get('mac_address', None)
-                    requested_address = sticky_ip_addr.get('requested_address',
-                                                           None)
-
-                    # log.debug("Claiming sticky IP address %s",
-                    #           requested_address)
-                    fn = client.claim_sticky_ip_address
-                    if not fn(maas_node, requested_address, mac_address):
-                        log.warning(">> Failed to claim sticky ip address")
-        else:
-            log.info("No cluster nodes provided")
+        self._create_maas_nodes(client, nodes)
 
         self._render_environments_yaml()
         log.debug("Uploading Juju environments.yaml to MAAS vm")
@@ -380,6 +407,7 @@ class DeploymentEngine(object):
             util.exec_script_remote(maas_config['user'], self.ip_addr, script)
 
         # Start juju domain
+        juju_node = self._get_juju_nodename(nodes)
         if juju_node is not None:
             util.virsh(['start', juju_node])
 
