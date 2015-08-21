@@ -34,8 +34,10 @@ class TestEngine(unittest.TestCase):
         client = MagicMock()
         client.add_tag = Mock()
         node = {'name': 'n1', 'tags': 't1 t2'}
-        e._add_tags_to_node(client, node)
-        client.add_tag.assert_has_calls([call('t1', node), call('t2', node)])
+        maas_node = {}
+        e._add_tags_to_node(client, node, maas_node)
+        client.add_tag.assert_has_calls([call('t1', maas_node),
+                                         call('t2', maas_node)])
 
     @patch.object(engine.DeploymentEngine, '_add_tags_to_node')
     @patch.object(engine.DeploymentEngine, '_create_maas_tags')
@@ -47,8 +49,9 @@ class TestEngine(unittest.TestCase):
         self.assertFalse(mock_create_maas_tags.called)
         self.assertFalse(mock_add_tags_to_node.called)
 
+        maas_node = {}
         mock_client.get_nodes.return_value = []
-        mock_client.create_node.side_effect = lambda n: n
+        mock_client.create_node.side_effect = lambda n: maas_node
 
         mock_create_maas_tags.reset_mock()
         mock_add_tags_to_node.reset_mock()
@@ -60,8 +63,9 @@ class TestEngine(unittest.TestCase):
         n0['hostname'] = n0['name']
         n1 = nodes[1]
         n1['hostname'] = n1['name']
-        mock_add_tags_to_node.assert_has_calls([call(mock_client, n0),
-                                                call(mock_client, n1)])
+        calls = [call(mock_client, n0, maas_node),
+                 call(mock_client, n1, maas_node)]
+        mock_add_tags_to_node.assert_has_calls(calls)
 
     @patch.object(engine, 'MAASClient')
     def test_create_maas_tags(self, mock_client):

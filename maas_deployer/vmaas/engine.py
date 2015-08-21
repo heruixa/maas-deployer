@@ -277,18 +277,15 @@ class DeploymentEngine(object):
             tags += self._get_node_tags(n)
 
         existing_tags = client.get_tags()
-
-        # Sanitise
-        existing_tags = map(str.strip, existing_tags)
-
         to_create = set(tags) - set([t.name for t in existing_tags])
         for tag in to_create:
             client.create_tag(Tag({'name': tag}))
 
-    def _add_tags_to_node(self, client, node):
+    def _add_tags_to_node(self, client, node, maas_node):
         for tag in self._get_node_tags(node):
+            log.debug("Adding tag '%s' to node '%s'", tag, node['name'])
             # log.debug("Tagging node with tag %s", tag)
-            if not client.add_tag(tag, node):
+            if not client.add_tag(tag, maas_node):
                 log.warning(">> Failed to tag node %s with %s",
                             node['name'], tag)
 
@@ -332,7 +329,7 @@ class DeploymentEngine(object):
                 log.warning(">> Failed to add node %s ", node['name'])
                 continue
 
-            self._add_tags_to_node(client, maas_node)
+            self._add_tags_to_node(client, node, maas_node)
 
             if 'sticky_ip_address' in node:
                 sticky_ip_addr = node['sticky_ip_address']
