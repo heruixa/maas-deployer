@@ -14,11 +14,10 @@ sudo maas-region-admin createadmin \
 # Configure the dns nameservers
 echo "Configuring the DNS nameserver"
 for dev in `ip link show | grep eth.*mtu | cut -d':' -f2`; do
-  sudo resolvconf -d $dev
+  sudo resolvconf -d ${dev}.inet
 done
 
 sudo sed -i 's/dns-nameserver.*/dns-nameserver 127.0.0.1/g' /etc/network/interfaces
-sudo resolvconf -u
 
 
 # Generate a MAAS API key for the admin user and start the importing of boot resources.

@@ -9,10 +9,11 @@ import itertools
 import json
 import logging
 import os
-import subprocess
-from subprocess import CalledProcessError
 import sys
 import time
+
+from subprocess import CalledProcessError
+
 
 from maas_deployer.vmaas import (
     vm,
@@ -46,16 +47,17 @@ class DeploymentEngine(object):
         config = self.config.get(target)
         juju_config = config.get('juju-bootstrap')
         juju_domain = self.deploy_juju_bootstrap(juju_config)
+        maas_config = config.get('maas')
 
         # Insert juju node information into the maas nodes list.
         # This allows us to define it in maas.
-        juju_node = self._get_juju_node_params(juju_domain)
+        juju_node = self._get_juju_node_params(juju_domain, maas_config)
 
-        maas_config = config.get('maas')
         nodes = maas_config.get('nodes', [])
         if not nodes:
             log.warning("No MAAS cluster nodes provided")
             maas_config['nodes'] = nodes
+
         nodes.append(juju_node)
 
         self.deploy_maas_node(maas_config)
@@ -67,19 +69,30 @@ class DeploymentEngine(object):
 
         self.configure_maas(maas_config)
 
-    def _get_juju_node_params(self, juju_domain):
+    def _get_juju_node_params(self, juju_domain, maas_config):
         """
         Determines the mac address of the juju machine specified.
+
+        :param juju_domain: the juju bootstrap image domain
+        :param include_power: a boolean value of whether to include
+                              power parameters or not for virsh power
+                              control.
         """
         node = {
             'name': juju_domain.name,
             'architecture': 'amd64/generic',
             'mac_addresses': [x for x in juju_domain.mac_addresses],
-            'tags': 'bootstrap',
-            'power_type': 'virsh',
-            'power_parameters_power_address': util.CONF.remote,
-            'power_parameters_power_id': juju_domain.name,
+            'tags': 'bootstrap'
         }
+
+        virsh_info = maas_config.get('virsh')
+        if virsh_info:
+            uri = virsh_info.get('uri', util.CONF.remote)
+            node.update({
+                'power_type': 'virsh',
+                'power_parameters_power_address': uri,
+                'power_parameters_power_id': juju_domain.name,
+            })
 
         return node
 
@@ -143,53 +156,49 @@ class DeploymentEngine(object):
                 time.sleep(1)
                 continue
 
+    def _get_api_key_from_cloudinit(self, user, addr):
+        # Now get the api key
+        rcmd = [r'grep "+ apikey=" %s| tail -n 1| sed -r "s/.+=(.+)/\1/"' %
+                ('/var/log/cloud-init-output.log')]
+        cmd = self.get_ssh_cmd(user, addr, remote_cmd=rcmd)
+        stdout, _ = util.execc(cmd=cmd)
+        self.api_key = stdout
+
+    @util.retry_on_exception(exc_tuple=[CalledProcessError])
+    def wait_for_cloudinit_finished(self, maas_config, maas_ip):
+        log.debug("Logging into maas host '%s'", (maas_ip))
+        # Now get the api key
+        msg = "MAAS controller is now configured"
+        cloudinitlog = '/var/log/cloud-init-output.log'
+        rcmd = ['grep "%s" %s' %
+                (msg, cloudinitlog)]
+        cmd = self.get_ssh_cmd(maas_config['user'], maas_ip,
+                               remote_cmd=rcmd)
+        out, err = util.execc(cmd=cmd, fatal=False)
+        if out and not err:
+            self._get_api_key_from_cloudinit(maas_config['user'], maas_ip)
+            return
+
+        log.info("Waiting for cloud-init to complete - this usually takes "
+                 "several minutes")
+        rcmd = ['grep -m 1 "%s" <(sudo tail -n 1 -F %s)' %
+                (msg, cloudinitlog)]
+        cmd = self.get_ssh_cmd(maas_config['user'], maas_ip,
+                               remote_cmd=rcmd)
+        util.execc(cmd=cmd)
+        self._get_api_key_from_cloudinit(maas_config['user'], maas_ip)
+
     def wait_for_maas_installation(self, maas_config):
         """
         Polls the ssh console to wait for the MAAS installation to
         complete.
         """
-        finished = False
-
         log.debug("Waiting for MAAS vm to come up for ssh..")
         maas_ip = self._get_maas_ip_address(maas_config)
 
         self.ip_addr = maas_ip
-
-        try:
-            curr_action = "Installing MAAS via cloud-init"
-            spinner = itertools.cycle(['|', '/', '-', '\\'])
-
-            self.wait_for_vm_ready(maas_config['user'], maas_ip)
-            log.debug("Logging into maas host '%s'", (maas_ip))
-
-            remote_cmd = ['sudo', 'tail', '-F',
-                          '/var/log/cloud-init-output.log']
-            cmd = self.get_ssh_cmd(maas_config['user'], maas_ip,
-                                   remote_cmd=remote_cmd)
-            process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-            for c in iter(lambda: process.stdout.readline(), ''):
-                c = c.strip()
-                if c.startswith('+ apikey='):
-                    self.api_key = c.split('=')[1]
-
-                if c.find('MAAS controller is now configured') >= 0:
-                    sys.stdout.write(' %s ... Done\r\n' % curr_action)
-                    sys.stdout.flush()
-                    finished = True
-                    process.terminate()
-                    break
-
-                # Display a spinner to show that progress is being made.
-                sys.stdout.write(' %s ... %s' % (curr_action,
-                                                 spinner.next()))
-                sys.stdout.flush()
-                sys.stdout.write('\r')
-        except CalledProcessError as e:
-            # An exception when process.terminate() is invoked because
-            # virsh console will return -1. A pty is required to
-            # gracefully exit, so we work around it
-            if not finished:
-                raise e
+        self.wait_for_vm_ready(maas_config['user'], maas_ip)
+        self.wait_for_cloudinit_finished(maas_config, maas_ip)
 
     def _get_maas_ip_address(self, maas_config):
         """Attempts to get the IP address from the maas_config dict.
@@ -230,9 +239,9 @@ class DeploymentEngine(object):
 
     def configure_maas_virsh_control(self, maas_config):
         """Configure the virsh control SSH keys"""
-        import pdb; pdb.set_trace()
-        if 'virsh_keys' not in maas_config:
-            log.debug('No virsh_keys specified in maas_config.')
+        virsh_info = maas_config.get('virsh')
+        if not virsh_info:
+            log.debug('No virsh specified in maas_config.')
             return
 
         KEY_TO_FILE_MAP = {
@@ -248,8 +257,11 @@ class DeploymentEngine(object):
                                remote_cmd=remote_cmd)
         util.execc(cmd)
 
-        virsh_keys = maas_config['virsh_keys']
-        for key, value in virsh_keys.iteritems():
+        for key, value in virsh_info.iteritems():
+            # not a key of interest
+            if not key.endswith('_key'):
+                continue
+
             try:
                 dest_file = 'virsh-keys/%s' % KEY_TO_FILE_MAP[key]
                 cmd = self.get_scp_cmd(maas_config['user'], self.ip_addr,
@@ -260,10 +272,12 @@ class DeploymentEngine(object):
 
         # Now move them over to the maas user.
         script = """
-        sudo mv ~/virsh-keys/* /home/maas/.ssh
-        sudo chown -R maas:maas /home/maas/.ssh
-        sudo chmod 700 /home/maas/.ssh
-        sudo find /home/maas/.ssh -name id* | xargs sudo chmod 600
+        maas_home=$(echo ~maas)
+        sudo mkdir -p $maas_home/.ssh
+        sudo mv ~/virsh-keys/* $maas_home/.ssh
+        sudo chown -R maas:maas $maas_home/.ssh
+        sudo chmod 700 $maas_home/.ssh
+        sudo find $maas_home/.ssh -name id* | xargs sudo chmod 600
         rmdir ~/virsh-keys
         """
         util.exec_script_remote(maas_config['user'], self.ip_addr, script)
@@ -299,6 +313,94 @@ class DeploymentEngine(object):
 
         log.debug("\r\nBoot image importing has completed.")
 
+    @staticmethod
+    def _get_node_tags(node):
+        """Tags value is expected to be a comma-separated list of tag names"""
+        tags = node.get('tags', '').split()
+        # Sanitise
+        return map(str.strip, tags)
+
+    def _get_juju_nodename(self, nodes):
+        """Get name of Juju bootstrap node"""
+        for node in nodes:
+            if 'bootstrap' in self._get_node_tags(node):
+                return node['name']
+
+        log.debug("No Juju bootstrap node description found with tag "
+                  "'bootstrap'")
+        return None
+
+    def _create_maas_tags(self, client, nodes):
+        log.debug("Creating tags...")
+        tags = []
+        for n in nodes:
+            tags += self._get_node_tags(n)
+
+        existing_tags = client.get_tags()
+        to_create = set(tags) - set([t.name for t in existing_tags])
+        for tag in to_create:
+            client.create_tag(Tag({'name': tag}))
+
+    def _add_tags_to_node(self, client, node, maas_node):
+        for tag in self._get_node_tags(node):
+            log.debug("Adding tag '%s' to node '%s'", tag, node['name'])
+            # log.debug("Tagging node with tag %s", tag)
+            if not client.add_tag(tag, maas_node):
+                log.warning(">> Failed to tag node %s with %s",
+                            node['name'], tag)
+
+    def _create_maas_nodes(self, client, nodes):
+        """Add nodes to MAAS cluster"""
+        if not nodes:
+            log.info("No cluster nodes provided")
+            return
+
+        self._create_maas_tags(client, nodes)
+
+        log.debug("Adding nodes to deployment...")
+        existing_nodes = client.get_nodes()
+
+        for node in nodes:
+            if 'power' in node:
+                power_params = node['power']
+                node['power_type'] = power_params['type']
+                del node['power']
+
+                node['power_parameters'] = \
+                    self.get_power_parameters(power_params)
+
+            # Note, the hostname returned by MAAS for the existing nodes
+            # uses the hostname.domainname for the nodegroup (cluster).
+            existing_maas_node = None
+            for n in existing_nodes:
+                if n.hostname.startswith("%s." % node['name']):
+                    existing_maas_node = n
+                    break
+
+            if existing_maas_node:
+                log.debug("Node %s is already in MAAS.", node['name'])
+                maas_node = existing_maas_node
+            else:
+                log.debug("Adding node %s ...", node['name'])
+                node['hostname'] = node['name']
+                maas_node = client.create_node(node)
+
+            if maas_node is None:
+                log.warning(">> Failed to add node %s ", node['name'])
+                continue
+
+            self._add_tags_to_node(client, node, maas_node)
+
+            if 'sticky_ip_address' in node:
+                sticky_ip_addr = node['sticky_ip_address']
+                mac_address = sticky_ip_addr.get('mac_address', None)
+                requested_address = sticky_ip_addr.get('requested_address',
+                                                       None)
+
+                fn = client.claim_sticky_ip_address
+                if not fn(maas_node, requested_address, mac_address):
+                    log.warning(">> Failed to claim sticky ip address")
+
     def configure_maas(self, maas_config):
         """
         Configures the MAAS instance.
@@ -325,72 +427,8 @@ class DeploymentEngine(object):
                 log.warning("Unable to create nodegroup interface: %s",
                             iface)
 
-        juju_node = None
         nodes = maas_config.get('nodes', [])
-        if nodes:
-            log.debug("Creating tags...")
-            tags = [n['tags'] for n in nodes if 'tags' in n]
-            existing_tags = client.get_tags()
-            to_create = set(tags) - set([t.name for t in existing_tags])
-            for tag in to_create:
-                client.create_tag(Tag({'name': tag}))
-
-            log.debug("Adding nodes to deployment...")
-            existing_nodes = client.get_nodes()
-
-            for node in nodes:
-                if 'power' in node:
-                    power_params = node['power']
-                    node['power_type'] = power_params['type']
-                    del node['power']
-
-                    node['power_parameters'] = \
-                        self.get_power_parameters(power_params)
-
-                # Note, the hostname returned by MAAS for the existing nodes
-                # uses the hostname.domainname for the nodegroup (cluster).
-                existing_maas_node = None
-                for n in existing_nodes:
-                    if n.hostname.startswith("%s." % node['name']):
-                        existing_maas_node = n
-                        break
-
-                if existing_maas_node:
-                    log.debug("Node %s is already in MAAS.", node['name'])
-                    maas_node = existing_maas_node
-                else:
-                    log.debug("Adding node %s ...", node['name'])
-                    node['hostname'] = node['name']
-                    maas_node = client.create_node(node)
-
-                if maas_node is None:
-                    log.warning(">> Failed to add node %s ", node['name'])
-                    continue
-
-                juju_node = None
-                if 'tags' in node:
-                    tag = node['tags']
-                    if tag == 'bootstrap':
-                        juju_node = node['name']
-
-                    # log.debug("Tagging node with tag %s", tag)
-                    if not client.add_tag(tag, maas_node):
-                        log.warning(">> Failed to tag node %s with %s",
-                                    node['name'], tag)
-
-                if 'sticky_ip_address' in node:
-                    sticky_ip_addr = node['sticky_ip_address']
-                    mac_address = sticky_ip_addr.get('mac_address', None)
-                    requested_address = sticky_ip_addr.get('requested_address',
-                                                           None)
-
-                    # log.debug("Claiming sticky IP address %s",
-                    #           requested_address)
-                    fn = client.claim_sticky_ip_address
-                    if not fn(maas_node, requested_address, mac_address):
-                        log.warning(">> Failed to claim sticky ip address")
-        else:
-            log.info("No cluster nodes provided")
+        self._create_maas_nodes(client, nodes)
 
         self._render_environments_yaml()
         log.debug("Uploading Juju environments.yaml to MAAS vm")
@@ -424,6 +462,12 @@ class DeploymentEngine(object):
             rmdir preseeds
             """
             util.exec_script_remote(maas_config['user'], self.ip_addr, script)
+
+        # Start juju domain
+        virsh_info = maas_config.get('virsh')
+        juju_node = self._get_juju_nodename(nodes)
+        if juju_node is not None and not virsh_info:
+            util.virsh(['start', juju_node])
 
         self._wait_for_nodes_to_commission(client)
         log.debug("Done")
