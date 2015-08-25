@@ -66,13 +66,3 @@ sudo adduser --disabled-password --gecos "Juju,,," juju
 echo "Starting the import of boot resources"
 maas maas boot-resources import
 
-# Prepare the MAAS User so that it has SSH information into the
-# hypervisor. This is done in accordance with the MAAS documentation
-# at https://maas.ubuntu.com/docs/nodes.html. The maas user's home
-# directory should be created as part of the cloud-init process, but
-# the MAAS installation reconfigures the user.
-sudo chown maas:maas /home/maas
-sudo chsh -s /bin/bash maas
-sudo mkdir -p /home/maas/.ssh
-sudo -u maas chmod 700 /home/maas/.ssh
-
