@@ -125,7 +125,7 @@ class CLIDriver(MAASDriver):
 
         :rtype: bool indicating whether the start of the import was successful
         """
-        raise NotImplementedError()
+        return self._maas_execute('boot-resources', 'import')
 
     ###########################################################################
     # Nodegroup API - http://maas.ubuntu.com/docs/api.html#nodegroups
