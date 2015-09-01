@@ -7,7 +7,7 @@ import unittest
 from maas_deployer.vmaas import util
 from mock import patch
 
-from utils import (
+from maas_deployer.tests.utils import (
     UnitTestException,
 )
 

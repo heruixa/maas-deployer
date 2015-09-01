@@ -268,7 +268,7 @@ class DeploymentEngine(object):
                                        os.path.expanduser(value), dest_file)
                 util.execc(cmd)
             except:
-                log.error("Error reading from %s file" % value)
+                log.error("Error reading from %s file", value)
 
         # Now move them over to the maas user.
         script = """
@@ -391,16 +391,6 @@ class DeploymentEngine(object):
 
             self._add_tags_to_node(client, node, maas_node)
 
-            if 'sticky_ip_address' in node:
-                sticky_ip_addr = node['sticky_ip_address']
-                mac_address = sticky_ip_addr.get('mac_address', None)
-                requested_address = sticky_ip_addr.get('requested_address',
-                                                       None)
-
-                fn = client.claim_sticky_ip_address
-                if not fn(maas_node, requested_address, mac_address):
-                    log.warning(">> Failed to claim sticky ip address")
-
     def configure_maas(self, maas_config):
         """
         Configures the MAAS instance.
@@ -470,6 +460,7 @@ class DeploymentEngine(object):
             util.virsh(['start', juju_node])
 
         self._wait_for_nodes_to_commission(client)
+        self._claim_sticky_ip_address(client, maas_config)
         log.debug("Done")
 
     def _render_environments_yaml(self):
@@ -517,6 +508,28 @@ class DeploymentEngine(object):
             else:
                 time.sleep(5)
                 nodes = client.get_nodes()
+
+    def _claim_sticky_ip_address(self, client, maas_config):
+        """
+        Claim sticky IP address
+        """
+        maas_nodes = client.get_nodes()
+        nodes = maas_config.get('nodes', [])
+        for maas_node in maas_nodes:
+            hostname = maas_node['hostname']
+            for node in nodes:
+                if (hostname.startswith("%s." % node['name']) and
+                        'sticky_ip_address' in node):
+                    sticky_ip_addr = node['sticky_ip_address']
+                    mac_address = sticky_ip_addr.get('mac_address', None)
+                    requested_address = sticky_ip_addr.get('requested_address')
+                    if requested_address:
+                        log.debug("Claiming sticky IP address '%s'",
+                                  requested_address)
+                        fn = client.claim_sticky_ip_address
+                        if not fn(maas_node, requested_address, mac_address):
+                            log.warning(">> Failed to claim sticky ip address "
+                                        "'%s'", (requested_address))
 
     def get_power_parameters(self, config_parms):
         """

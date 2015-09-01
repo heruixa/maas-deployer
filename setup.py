@@ -10,7 +10,8 @@ setup(
     url="https://launchpad.net/maas-deployer",
     packages=find_packages(),
     package_data={'maas_deployer': ['vmaas/templates/*']},
-    data_files=[('/usr/share/maas-deployer/examples', ['examples/deployment.yaml'])],
+    data_files=[('/usr/share/maas-deployer/examples',
+                 ['examples/deployment.yaml'])],
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
