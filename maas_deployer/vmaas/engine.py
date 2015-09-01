@@ -457,7 +457,15 @@ class DeploymentEngine(object):
         virsh_info = maas_config.get('virsh')
         juju_node = self._get_juju_nodename(nodes)
         if juju_node is not None and not virsh_info:
-            util.virsh(['start', juju_node])
+            try:
+                _, stderr = util.virsh(['start', juju_node])
+            except CalledProcessError as exc:
+                # Ignore already started error
+                msg = 'Domain is already active'
+                if msg not in exc.output:
+                    raise
+                else:
+                    log.debug(msg)
 
         self._wait_for_nodes_to_commission(client)
         self._claim_sticky_ip_address(client, maas_config)
