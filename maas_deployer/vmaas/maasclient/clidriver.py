@@ -51,9 +51,9 @@ class CLIDriver(MAASDriver):
                     value = kwargs[key]
                     if isinstance(value, list):
                         for v in value:
-                            cmdarr.append("%s=%s" % (key, str(v)))
+                            cmdarr.append("%s='%s'" % (key, str(v)))
                     else:
-                        cmdarr.append("%s=%s" % (key, str(value)))
+                        cmdarr.append("%s='%s'" % (key, str(value)))
             stdout = execc(cmdarr)[0]
 
             display_stdout = stdout

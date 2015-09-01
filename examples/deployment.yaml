@@ -21,6 +21,16 @@ demo-maas:
         # Apt http proxy setting(s)
         apt_http_proxy:
 
+        # Virsh power settings
+        # Specifies the uri and keys to use for virsh power control of the 
+        # juju virtual machine. If the uri is omitted, the value for the
+        # --remote is used. If no power settings are desired, then do not
+        # supply the virsh block.
+        #virsh:
+        #    rsa_priv_key: /path/to/id_rsa
+        #    rsa_pub_key: /path/to/id_rsa.pub
+        #    uri: qemu+ssh://user@10.0.3.1/system
+
         # Defines the IP Address that the configuration script will use to
         # to access the MAAS controller via SSH.
         ip_address: 192.168.122.2
@@ -33,6 +43,8 @@ demo-maas:
             main_archive: http://archive.ubuntu.com/ubuntu
             upstream_dns: 192.168.122.1
             maas_name: automaas
+            # kernel_opts: "console=tty0 console=ttyS1,115200n8"
+            # ntp_server: ntp.ubuntu.com
 
         # This section is used to define the networking parameters for when
         # the node first comes up. It is fed into the meta-data cloud-init
