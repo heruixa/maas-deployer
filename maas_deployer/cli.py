@@ -87,6 +87,8 @@ def main():
         engine = DeploymentEngine(config, target)
         engine.deploy(target)
     except:
+        # Remove console handler to avoid displaying the exception twice
+        log.removeHandler(handler)
         log.exception("MAAS deployment failed.")
         raise
     else:
