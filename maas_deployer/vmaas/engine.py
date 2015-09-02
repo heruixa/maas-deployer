@@ -14,13 +14,14 @@ import time
 
 from subprocess import CalledProcessError
 
-
 from maas_deployer.vmaas import (
     vm,
     util,
     template,
 )
-
+from maas_deployer.vmaas.exception import (
+    MAASDeployerClientError,
+)
 from maas_deployer.vmaas.maasclient import (
     bootimages,
     MAASClient,
@@ -417,8 +418,8 @@ class DeploymentEngine(object):
         node_group_interfaces = copy.deepcopy(maas_config['node_group_ifaces'])
         for iface in node_group_interfaces:
             if not self.create_nodegroup_interface(client, nodegroup, iface):
-                log.warning("Unable to create nodegroup interface: %s",
-                            iface)
+                msg = "Unable to create nodegroup interface: %s" % iface
+                raise MAASDeployerClientError(msg)
 
         nodes = maas_config.get('nodes', [])
         self._create_maas_nodes(client, nodes)
@@ -461,14 +462,14 @@ class DeploymentEngine(object):
         juju_node = self._get_juju_nodename(nodes)
         if juju_node is not None and not virsh_info:
             try:
-                _, stderr = util.virsh(['start', juju_node])
+                util.virsh(['start', juju_node])
             except CalledProcessError as exc:
                 # Ignore already started error
                 msg = 'Domain is already active'
                 if msg not in exc.output:
                     raise
-                else:
-                    log.debug(msg)
+
+                log.debug(msg)
 
         self._wait_for_nodes_to_commission(client)
         self._claim_sticky_ip_address(client, maas_config)

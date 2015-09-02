@@ -11,6 +11,10 @@ class Response(object):
         self.ok = ok
         self.data = data
 
+    def __nonzero__(self):
+        """Allow boolean comparison"""
+        return bool(self.ok)
+
 
 class MAASDriver(object):
     """

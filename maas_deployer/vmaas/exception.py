@@ -30,3 +30,8 @@ class MAASDeployerPoolNotFound(MAASDeployerBaseException):
                "running the deployer" % (pool))
 
         super(MAASDeployerPoolNotFound, self).__init__(msg)
+
+
+class MAASDeployerClientError(MAASDeployerBaseException):
+    def __init__(self, msg):
+        super(MAASDeployerClientError, self).__init__(msg)
