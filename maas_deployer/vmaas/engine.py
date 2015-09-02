@@ -65,9 +65,14 @@ class DeploymentEngine(object):
         self.wait_for_maas_installation(maas_config)
         self.configure_maas_virsh_control(maas_config)
         self.api_key = self._get_api_key(maas_config)
-        self.wait_for_import_boot_images(maas_config)
 
-        self.configure_maas(maas_config)
+        api_url = 'http://{}/MAAS/api/1.0'.format(self.ip_addr)
+        client = MAASClient(api_url, self.api_key,
+                            ssh_user=maas_config['user'])
+
+        self.apply_maas_settings(client, maas_config)
+        self.wait_for_import_boot_images(client, maas_config)
+        self.configure_maas(client, maas_config)
 
     def _get_juju_node_params(self, juju_domain, maas_config):
         """
@@ -186,6 +191,7 @@ class DeploymentEngine(object):
         cmd = self.get_ssh_cmd(maas_config['user'], maas_ip,
                                remote_cmd=rcmd)
         util.execc(cmd=cmd)
+        log.info("done.")
         self._get_api_key_from_cloudinit(maas_config['user'], maas_ip)
 
     def wait_for_maas_installation(self, maas_config):
@@ -282,9 +288,11 @@ class DeploymentEngine(object):
         """
         util.exec_script_remote(maas_config['user'], self.ip_addr, script)
 
-    def wait_for_import_boot_images(self, maas_config):
+    def wait_for_import_boot_images(self, client, maas_config):
         """Polls the import boot image status."""
-        log.debug("Importing boot images...")
+        log.debug("Starting the import of boot resources")
+        client.import_boot_images()
+
         ip_addr = self.ip_addr or self._get_maas_ip_address(maas_config)
         user = maas_config['user']
         password = maas_config['password']
@@ -391,17 +399,7 @@ class DeploymentEngine(object):
 
             self._add_tags_to_node(client, node, maas_node)
 
-    def configure_maas(self, maas_config):
-        """
-        Configures the MAAS instance.
-        """
-        api_url = 'http://{}/MAAS/api/1.0'.format(self.ip_addr)
-
-        client = MAASClient(api_url, self.api_key,
-                            ssh_user=maas_config['user'])
-
-        nodegroup = client.get_nodegroups()[0]
-
+    def apply_maas_settings(self, client, maas_config):
         log.debug("Configuring MAAS settings...")
         maas_settings = maas_config.get('settings', {})
         for key in maas_settings:
@@ -410,6 +408,11 @@ class DeploymentEngine(object):
             if not succ:
                 log.error("Unable to set %s to %s", key, value)
 
+    def configure_maas(self, client, maas_config):
+        """
+        Configures the MAAS instance.
+        """
+        nodegroup = client.get_nodegroups()[0]
         log.debug("Creating the nodegroup interfaces...")
         node_group_interfaces = copy.deepcopy(maas_config['node_group_ifaces'])
         for iface in node_group_interfaces:

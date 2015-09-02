@@ -10,15 +10,8 @@ sudo maas-region-admin createadmin \
     --password={{password}} \
     --email={{user}}@localhost
 
-
-# Configure the dns nameservers
-echo "Configuring the DNS nameserver"
-for dev in `ip link show | grep eth.*mtu | cut -d':' -f2`; do
-  sudo resolvconf -d ${dev}.inet
-done
-
 sudo sed -i 's/dns-nameserver.*/dns-nameserver 127.0.0.1/g' /etc/network/interfaces
-
+# NOTE: we should cleanup /etc/resolv.conf once MAAS DNS has been configured.
 
 # Generate a MAAS API key for the admin user and start the importing of boot resources.
 echo "Generating MAAS API login credentials for admin"
@@ -27,12 +20,10 @@ apikey=$(sudo maas-region-admin apikey --username {{user}})
 ipaddr=$(ip route get 8.8.8.8 | awk 'NR==1 {print $NF}')
 maas login maas http://${ipaddr}/MAAS/api/1.0 ${apikey}
 
-
 # Configure MAAS networks...
 echo "Configuring MAAS node group interfaces (dns and dhcp configuration)..."
 maas_ip=$(ip addr show eth0 | awk '/inet / {print $2}' | cut -d/ -f1)
 maas_net=$(ip addr show eth0 | awk '/inet / {print $2}' | cut -d/ -f1 | cut -d. -f-3)
-
 
 node_group_uuid=$(maas maas node-groups list | grep uuid | cut -d\" -f4)
 attempts=0
@@ -58,13 +49,6 @@ sysctl -p /etc/sysctl.d/80-canonical.conf
 iptables -t nat -A POSTROUTING -o $ext_dev -j MASQUERADE
 sed -i -s "s/^exit 0/iptables -t nat -A POSTROUTING -o $ext_dev -j MASQUERADE\nexit 0/" /etc/rc.local
 
-
 # Create a juju user
 sudo adduser --disabled-password --gecos "Juju,,," juju
-
-
-# Kick off the boot-resources import
-echo "Starting the import of boot resources"
-maas maas boot-resources import
-
 
