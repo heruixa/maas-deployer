@@ -168,6 +168,9 @@ class DeploymentEngine(object):
                 ('/var/log/cloud-init-output.log')]
         cmd = self.get_ssh_cmd(user, addr, remote_cmd=rcmd)
         stdout, _ = util.execc(cmd=cmd)
+        if stdout:
+            stdout = stdout.strip()
+
         self.api_key = stdout
 
     @util.retry_on_exception(exc_tuple=[CalledProcessError])
@@ -241,6 +244,9 @@ class DeploymentEngine(object):
             cmd = self.get_ssh_cmd(maas_config['user'], self.ip_addr,
                                    remote_cmd=remote_cmd)
             self.api_key, _ = util.execc(cmd)
+
+        if self.api_key:
+            self.api_key = self.api_key.strip()
 
         return self.api_key
 
