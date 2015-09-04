@@ -38,19 +38,17 @@ working_dir = tempfile.mkdtemp()
 
 class Instance(object):
 
-    def __init__(self, name, interfaces, arch='amd64', disk_size='20G',
-                 vcpus=1, memory=1024, pool='default', netboot=False):
-        self.name = name
-        self.interfaces = interfaces
-        self.arch = arch
-        self.disk_size = disk_size
-        self.vcpus = vcpus
-        self.memory = memory
-        self.pool = pool
-        self.netboot = netboot
+    def __init__(self, params):
+        self.name = params.get('name')
+        self.interfaces = params.get('interfaces')
+        self.arch = params.get('arch', 'amd64')
+        self.disk_size = params.get('disk_size', '20G')
+        self.vcpus = params.get('vcpus', 1)
+        self.memory = params.get('memory', 1024)
+        self.pool = params.get('pool', 'default')
+        self.netboot = params.get('netboot', False)
         self.conn = libvirt.open(cfg.remote)
-
-        self.assert_pool_exists(pool)
+        self.assert_pool_exists(self.pool)
 
     @staticmethod
     def assert_pool_exists(pool='default'):
@@ -265,28 +263,21 @@ class Instance(object):
 
 class CloudInstance(Instance):
 
-    def __init__(self, name, interfaces, disk_size='40G', vcpus=2,
-                 memory=4096, pool='default', user='ubuntu', password='ubuntu',
-                 release='trusty', arch='amd64', **kwargs):
-        super(CloudInstance, self).__init__(self, name, interfaces)
-        self.name = name
-        self.interfaces = interfaces
-        self.disk_size = disk_size
-        self.vcpus = vcpus
-        self.memory = memory
-        self.pool = pool
-        self.release = release
-        self.user = user
-        self.password = password
-        self.arch = arch
-
-        if 'network_config' in kwargs:
-            self.network_interfaces_content = kwargs['network_config']
-
-        if 'node_group_ifaces' in kwargs:
-            self.node_group_ifaces = kwargs['node_group_ifaces']
-
-        self.apt_http_proxy = kwargs.get('apt_http_proxy')
+    def __init__(self, params):
+        super(CloudInstance, self).__init__(params)
+        self.name = params.get('name')
+        self.interfaces = params.get('interfaces')
+        self.arch = params.get('arch', 'amd64')
+        self.disk_size = params.get('disk_size', '40G')
+        self.vcpus = params.get('vcpus', 2)
+        self.memory = params.get('memory', 4096)
+        self.pool = params.get('pool', 'default')
+        self.release = params.get('release', 'trusty')
+        self.user = params.get('user', 'ubuntu')
+        self.password = params.get('password', 'ubuntu')
+        self.network_interfaces_content = params.get('network_config')
+        self.node_group_ifaces = params.get('node_group_ifaces')
+        self.apt_http_proxy = params.get('apt_http_proxy')
 
     def _get_cloud_image_info(self):
         """
