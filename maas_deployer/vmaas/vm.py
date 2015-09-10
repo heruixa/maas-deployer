@@ -37,7 +37,7 @@ log = logging.getLogger('vmaas.main')
 
 class Instance(object):
 
-    def __init__(self, params):
+    def __init__(self, params, autostart=False):
         self.name = params.get('name')
         self.interfaces = params.get('interfaces')
         self.arch = params.get('arch', 'amd64')
@@ -50,6 +50,7 @@ class Instance(object):
         self.working_dir = tempfile.mkdtemp()
         self.conn = libvirt.open(cfg.remote)
         self.assert_pool_exists(self.pool)
+        self.autostart = autostart
 
     def __enter__(self):
         return self
@@ -197,6 +198,9 @@ class Instance(object):
             virsh(['undefine', self.name], fatal=False)
             raise
 
+        if self.autostart:
+            virsh(['autostart', self.name])
+
     def define(self):
         """
         Defines the domain within libvirt. A defined domain exists but is
@@ -224,7 +228,7 @@ class Instance(object):
         # will still be created during the command execution, but the domain
         # will not be created.
         cmd = self._get_virsh_command(extras=['--print-xml'])
-        xml_file = ('/tmp/%s.xml' % self.name)
+        xml_file = os.path.join(self.working_dir, "%s.xml" % (self.name))
 
         try:
             log.debug("Creating domain '%s'", (self.name))
@@ -236,6 +240,9 @@ class Instance(object):
         except CalledProcessError as e:
             log.error("Failed to define domain: %s", e.output)
             raise
+
+        if self.autostart:
+            virsh(['autostart', self.name])
 
     @property
     def mac_addresses(self):
@@ -274,8 +281,8 @@ class Instance(object):
 
 class CloudInstance(Instance):
 
-    def __init__(self, params):
-        super(CloudInstance, self).__init__(params)
+    def __init__(self, params, autostart=False):
+        super(CloudInstance, self).__init__(params, autostart)
         self.name = params.get('name')
         self.interfaces = params.get('interfaces')
         self.arch = params.get('arch', 'amd64')
@@ -569,3 +576,6 @@ class CloudInstance(Instance):
             virsh(['destroy', self.name], fatal=False)
             virsh(['undefine', self.name], fatal=False)
             raise
+
+        if self.autostart:
+            virsh(['autostart', self.name])
