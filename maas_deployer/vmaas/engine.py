@@ -383,12 +383,17 @@ class DeploymentEngine(object):
 
         for node in nodes:
             if 'power' in node:
-                power_params = node['power']
-                node['power_type'] = power_params['type']
-                del node['power']
+                power_settings = node.pop('power')
+
+                # NOTE: See LP 1492163 for info on why we do this
+                if power_settings.get('type') == 'virsh':
+                    if power_settings.get('id') is None:
+                        power_settings['id'] = node['name']
 
                 node['power_parameters'] = \
-                    self.get_power_parameters(power_params)
+                    self.get_power_parameters_encoded(power_settings)
+
+                node['power_type'] = power_settings['type']
 
             # Note, the hostname returned by MAAS for the existing nodes
             # uses the hostname.domainname for the nodegroup (cluster).
@@ -561,7 +566,7 @@ class DeploymentEngine(object):
             if not rc:
                 log.warning("Failed to claim sticky ip address '%s'", ip_addr)
 
-    def get_power_parameters(self, config_parms):
+    def get_power_parameters_encoded(self, config_parms):
         """
         Converts the power parameters entry
         """

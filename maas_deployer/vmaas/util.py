@@ -60,7 +60,7 @@ def execc(cmd, stdin=None, pipedcmds=None, fatal=True, suppress_stderr=False):
             _stdin = "<type 'file'>"
         else:
             if len(_stdin) > 10:
-                _stdin = "'%s...'" % _stdin[:10]
+                _stdin = "%s..." % _stdin[:10]
 
     log.debug("Executing: '%s' stdin='%s'", ' '.join(cmd), _stdin)
 
