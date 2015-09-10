@@ -52,7 +52,8 @@ class DeploymentEngine(object):
 
         # Insert juju node information into the maas nodes list.
         # This allows us to define it in maas.
-        juju_node = self._get_juju_node_params(juju_domain, maas_config)
+        juju_node = self._get_juju_node_params(juju_domain, juju_config,
+                                               maas_config)
 
         nodes = maas_config.get('nodes', [])
         if not nodes:
@@ -75,7 +76,7 @@ class DeploymentEngine(object):
         self.wait_for_import_boot_images(client, maas_config)
         self.configure_maas(client, maas_config)
 
-    def _get_juju_node_params(self, juju_domain, maas_config):
+    def _get_juju_node_params(self, juju_domain, juju_config, maas_config):
         """
         Determines the mac address of the juju machine specified.
 
@@ -100,6 +101,11 @@ class DeploymentEngine(object):
                 'power_parameters_power_id': juju_domain.name,
             })
 
+        sticky_cfg = juju_config.get('sticky_ip_address')
+        if sticky_cfg:
+            node['sticky_ip_address'] = sticky_cfg
+            node['sticky_ip_address']['mac_address'] = node['mac_addresses'][0]
+
         return node
 
     def deploy_juju_bootstrap(self, params):
@@ -107,7 +113,7 @@ class DeploymentEngine(object):
         Deploys the juju bootstrap node.
         """
         log.debug("Creating Juju bootstrap node...")
-        juju_node = vm.Instance(**params)
+        juju_node = vm.Instance(params)
         juju_node.netboot = True
         juju_node.define()
         return juju_node
@@ -117,7 +123,7 @@ class DeploymentEngine(object):
         Deploys the virtual maas node.
         """
         log.debug("Creating MAAS Virtual Machine...")
-        maas = vm.CloudInstance(**params)
+        maas = vm.CloudInstance(params)
         maas.create()
         return maas
 
@@ -532,22 +538,28 @@ class DeploymentEngine(object):
         Claim sticky IP address
         """
         maas_nodes = client.get_nodes()
-        nodes = maas_config.get('nodes', [])
-        for maas_node in maas_nodes:
-            hostname = maas_node['hostname']
-            for node in nodes:
-                if (hostname.startswith("%s." % node['name']) and
-                        'sticky_ip_address' in node):
-                    sticky_ip_addr = node['sticky_ip_address']
-                    mac_address = sticky_ip_addr.get('mac_address', None)
-                    requested_address = sticky_ip_addr.get('requested_address')
-                    if requested_address:
-                        log.debug("Claiming sticky IP address '%s'",
-                                  requested_address)
-                        fn = client.claim_sticky_ip_address
-                        if not fn(maas_node, requested_address, mac_address):
-                            log.warning(">> Failed to claim sticky ip address "
-                                        "'%s'", (requested_address))
+        config_nodes = maas_config.get('nodes', [])
+        sticky_nodes = {}
+        for m_node in maas_nodes:
+            hostname = m_node['hostname']
+            for c_node in config_nodes:
+                sticky_addr_cfg = c_node.get('sticky_ip_address')
+                if (hostname.startswith("%s." % c_node['name']) and
+                        sticky_addr_cfg):
+                    ip_addr = sticky_addr_cfg.get('requested_address')
+                    mac_addr = sticky_addr_cfg.get('mac_address')
+                    if ip_addr and mac_addr:
+                        sticky_nodes[ip_addr] = {'mac_addr': mac_addr,
+                                                 'maas_node': m_node}
+
+        for ip_addr, cfg in sticky_nodes.iteritems():
+            node = cfg['maas_node']
+            log.debug("Claiming sticky IP address '%s' for node '%s'",
+                      ip_addr, node['hostname'])
+            rc = client.claim_sticky_ip_address(node, ip_addr,
+                                                cfg['mac_addr'])
+            if not rc:
+                log.warning("Failed to claim sticky ip address '%s'", ip_addr)
 
     def get_power_parameters(self, config_parms):
         """

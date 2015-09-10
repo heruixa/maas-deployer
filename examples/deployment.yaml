@@ -1,6 +1,19 @@
 # This file defines the deployment for the MAAS environment which is to be
 # deployed and automated.
 demo-maas:
+    # Contains the virtual machine parameters for creating the Juju bootstrap
+    # node virtual machine
+    juju-bootstrap:
+        name: juju-boot-vm-dc1
+        interfaces: ['bridge=virbr0,model=virtio']
+        memory: 2048
+        vcpus: 2
+        arch: amd64
+        pool: default
+        disk_size: 20G
+        sticky_ip_address:
+            requested_address: 192.168.122.5
+
     maas:
         # Defines the general setup for the MAAS environment, including the
         # username and password for the host as well as the MAAS server.
@@ -105,15 +118,5 @@ demo-maas:
                   driver: LAN_2_0
               sticky_ip_address:
                   mac_address: "38:63:bb:43:b8:9c"
-                  requested_address: 192.168.122.5
-                
-    # Contains the virtual machine parameters for creating the Juju bootstrap
-    # node virtual machine
-    juju-bootstrap:
-        name: juju-boot-vm-dc1
-        interfaces: ['bridge=virbr0,model=virtio']
-        memory: 2048
-        vcpus: 2
-        arch: amd64
-        pool: default
-        disk_size: 20G
+                  requested_address: 192.168.122.6
+
