@@ -35,6 +35,14 @@ class CLIDriver(MAASDriver):
     def _get_base_command(self):
         return ['maas', 'maas']
 
+    @property
+    def cmd_stdin(self):
+        """String to be provided as stdin when executing commands.
+
+        If nothing required, always return None.
+        """
+        return None
+
     def _maas_execute(self, cmd, *args, **kwargs):
         """
         Executes the specified subcommand. The keyword maas and the profile
@@ -54,7 +62,8 @@ class CLIDriver(MAASDriver):
                             cmdarr.append("%s='%s'" % (key, str(v)))
                     else:
                         cmdarr.append("%s='%s'" % (key, str(value)))
-            stdout = execc(cmdarr)[0]
+
+            stdout = execc(cmdarr, stdin=self.cmd_stdin)[0]
 
             display_stdout = stdout
             if display_stdout and len(display_stdout) > 100:
@@ -320,6 +329,14 @@ class SSHDriver(CLIDriver):
         super(SSHDriver, self).__init__(api_url, api_key)
         self._login(api_url, api_key)
 
+    @property
+    def cmd_stdin(self):
+        """Space-separated list of environment variables.
+
+        If no env vars required, always return None.
+        """
+        return 'LC_ALL=C'
+
     def _login(self, api_url, api_key):
         cmd = ['ssh', '-i', os.path.expanduser('~/.ssh/id_maas'),
                '-o', 'UserKnownHostsFile=/dev/null',
@@ -327,7 +344,7 @@ class SSHDriver(CLIDriver):
                '-o', 'LogLevel=quiet',
                '{}@{}'.format(self.ssh_user, self.maas_ip),
                'maas', 'login', 'maas', api_url, api_key]
-        execc(cmd)
+        execc(cmd, stdin=self.cmd_stdin)
 
     def _get_base_command(self):
         cmd = ['ssh', '-i', os.path.expanduser('~/.ssh/id_maas'),
