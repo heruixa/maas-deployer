@@ -426,6 +426,7 @@ class CloudInstance(Instance):
         """
         base_file = os.path.join(working_dir, 'cloud-init.cfg')
         parms = {
+            'hostname': self.name,
             'user': self.user,
             'password': self.password,
             'ssh_key': self._get_ssh_key(),
