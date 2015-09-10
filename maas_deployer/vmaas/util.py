@@ -53,7 +53,7 @@ def execc(cmd, stdin=None, pipedcmds=None, fatal=True, suppress_stderr=False):
     _input = None
 
     # Abridge stdin for log if provided
-    _stdin = None
+    _stdin = ''
     if stdin:
         _stdin = stdin
         if type(stdin) == file:
@@ -62,7 +62,7 @@ def execc(cmd, stdin=None, pipedcmds=None, fatal=True, suppress_stderr=False):
             if len(_stdin) > 10:
                 _stdin = "'%s...'" % _stdin[:10]
 
-    log.debug("Executing: '%s' stdin=%s", ' '.join(cmd), _stdin)
+    log.debug("Executing: '%s' stdin='%s'", ' '.join(cmd), _stdin)
 
     if stdin:
         if type(stdin) == file:
