@@ -33,7 +33,6 @@ from maas_deployer.vmaas.util import (
 
 
 log = logging.getLogger('vmaas.main')
-working_dir = tempfile.mkdtemp()
 
 
 class Instance(object):
@@ -47,8 +46,20 @@ class Instance(object):
         self.memory = params.get('memory', 1024)
         self.pool = params.get('pool', 'default')
         self.netboot = params.get('netboot', False)
+
+        self.working_dir = tempfile.mkdtemp()
         self.conn = libvirt.open(cfg.remote)
         self.assert_pool_exists(self.pool)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type_, value, traceback):
+        self.cleanup()
+
+    def cleanup(self):
+        if os.path.isdir(self.working_dir):
+            shutil.rmtree(self.working_dir)
 
     @staticmethod
     def assert_pool_exists(pool='default'):
@@ -383,7 +394,7 @@ class CloudInstance(Instance):
 
         content = '\n  '.join(self.network_interfaces_content.split('\n'))
         params = {'network_config': content}
-        path = os.path.join(working_dir, 'meta-data')
+        path = os.path.join(self.working_dir, 'meta-data')
         with open(path, 'w+') as out:
             content = template.load('meta-data', params)
             out.write(content)
@@ -415,7 +426,7 @@ class CloudInstance(Instance):
         Generates the necessary user data files which are fed into
         the cloud-init configuration.
         """
-        base_file = os.path.join(working_dir, 'cloud-init.cfg')
+        base_file = os.path.join(self.working_dir, 'cloud-init.cfg')
         parms = {
             'hostname': self.name,
             'user': self.user,
@@ -429,7 +440,7 @@ class CloudInstance(Instance):
             f.flush()
 
         # Generate the script file...
-        config_maas_script = os.path.join(working_dir, 'config-maas.sh')
+        config_maas_script = os.path.join(self.working_dir, 'config-maas.sh')
         parms = {
             'user': self.user,
             'password': self.password,
@@ -440,7 +451,7 @@ class CloudInstance(Instance):
             f.write(content)
             f.flush()
 
-        user_data_file = os.path.join(working_dir, 'user-data.txt')
+        user_data_file = os.path.join(self.working_dir, 'user-data.txt')
         cmd = ['write-mime-multipart', '--output={}'.format(user_data_file),
                base_file, '{}:text/x-shellscript'.format(config_maas_script)]
 
@@ -466,7 +477,7 @@ class CloudInstance(Instance):
                     # Do not include directories
                     if os.path.isdir(src):
                         continue
-                    dest = os.path.join(working_dir, 'user_data_%s' % f)
+                    dest = os.path.join(self.working_dir, 'user_data_%s' % f)
                     shutil.copy(src, dest)
                     user_files.append(dest)
             except OSError as e:
@@ -503,7 +514,7 @@ class CloudInstance(Instance):
         user_data_file = self._generate_user_data_file()
 
         log.debug('Creating local seed file')
-        img_path = os.path.join(working_dir, seed_name)
+        img_path = os.path.join(self.working_dir, seed_name)
         execc(['cloud-localds', img_path, user_data_file,
                meta_data_file])
 

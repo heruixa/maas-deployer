@@ -46,20 +46,14 @@ class DeploymentEngine(object):
         Deploys the configuration defined in the config map
         """
         config = self.config.get(target)
-        juju_config = config.get('juju-bootstrap')
-        juju_domain = self.deploy_juju_bootstrap(juju_config)
         maas_config = config.get('maas')
-
-        # Insert juju node information into the maas nodes list.
-        # This allows us to define it in maas.
-        juju_node = self._get_juju_node_params(juju_domain, juju_config,
-                                               maas_config)
-
         nodes = maas_config.get('nodes', [])
         if not nodes:
-            log.warning("No MAAS cluster nodes provided")
+            log.warning("No MAAS cluster nodes configured")
             maas_config['nodes'] = nodes
 
+        juju_node = self.deploy_juju_bootstrap(config.get('juju-bootstrap'),
+                                               maas_config)
         nodes.append(juju_node)
 
         self.deploy_maas_node(maas_config)
@@ -108,24 +102,26 @@ class DeploymentEngine(object):
 
         return node
 
-    def deploy_juju_bootstrap(self, params):
+    def deploy_juju_bootstrap(self, params, maas_config):
+        """Deploy the juju bootstrap node.
+
+        Returns Juju node params from YAML config.
         """
-        Deploys the juju bootstrap node.
-        """
-        log.debug("Creating Juju bootstrap node...")
-        juju_node = vm.Instance(params)
-        juju_node.netboot = True
-        juju_node.define()
-        return juju_node
+        log.debug("Creating Juju bootstrap vm.")
+        with vm.Instance(params) as juju_node:
+            juju_node.netboot = True
+            juju_node.define()
+            # Insert juju node information into the maas nodes list.
+            # This allows us to define it in maas.
+            return self._get_juju_node_params(juju_node, params, maas_config)
 
     def deploy_maas_node(self, params):
         """
         Deploys the virtual maas node.
         """
-        log.debug("Creating MAAS Virtual Machine...")
-        maas = vm.CloudInstance(params)
-        maas.create()
-        return maas
+        log.debug("Creating MAAS virtual machine.")
+        with vm.CloudInstance(params) as maas_node:
+            maas_node.create()
 
     def get_ssh_cmd(self, user, host, ssh_opts=None, remote_cmd=None):
         cmd = ['ssh', '-i', os.path.expanduser('~/.ssh/id_maas'),
