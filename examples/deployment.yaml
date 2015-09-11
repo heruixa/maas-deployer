@@ -102,21 +102,22 @@ demo-maas:
                   low: 192.168.122.5
                   high: 192.168.122.50
 
-        # Defines the physical nodes which are added to the MAAS cluster
-        # controller upon startup of the node.
+        # Physical nodes to be added to the MAAS cluster. Nodes will be
+        # configured, commissioned and put into the Ready state so
+        # they are ready to be deployed to.
         nodes:
-            - name: node1
-              tags: api
-              architecture: amd64/generic
-              mac_addresses:
-                  - "38:63:bb:43:b8:9c"
-              power:
-                  type: ipmi
-                  address: 10.0.1.1
-                  user: maas
-                  pass: passw0rd
-                  driver: LAN_2_0
-              sticky_ip_address:
-                  mac_address: "38:63:bb:43:b8:9c"
-                  requested_address: 192.168.122.6
+            #- name: node1
+            #  tags: api
+            #  architecture: amd64/generic
+            #  mac_addresses:
+            #      - "38:63:bb:43:b8:9c"
+            #  power:
+            #      type: ipmi
+            #      address: 10.0.1.1
+            #      user: maas
+            #      pass: passw0rd
+            #      driver: LAN_2_0
+            #  sticky_ip_address:
+            #      mac_address: "38:63:bb:43:b8:9c"
+            #      requested_address: 192.168.122.6
 
