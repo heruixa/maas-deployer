@@ -108,7 +108,7 @@ class DeploymentEngine(object):
         Returns Juju node params from YAML config.
         """
         log.debug("Creating Juju bootstrap vm.")
-        with vm.Instance(params, autostart=True) as juju_node:
+        with vm.Instance(params) as juju_node:
             juju_node.netboot = True
             juju_node.define()
             # Insert juju node information into the maas nodes list.
