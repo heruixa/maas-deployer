@@ -149,7 +149,10 @@ class Instance(object):
 
     def _domain_exists(self, name):
         log.debug("Checking if domain '%s' exists", (name))
-        return name in virsh(['list', '--all'])[0]
+        out = virsh(['list', '--all'])[0]
+        key = re.compile(r' %s ' % name)
+        result = re.search(key, out)
+        return result is not None and result.group(0).strip() == name
 
     def _undefine_domain(self, name):
         log.debug("Undefining domain '%s'", (name))
