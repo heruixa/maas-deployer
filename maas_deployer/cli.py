@@ -49,7 +49,7 @@ def main():
                             default='qemu:///system',
                             help='Specify a remote virsh connection URL for '
                                  'communicating with the hypervisor. This '
-                                 'parameter takes the same values as the the '
+                                 'parameter takes the same values as the '
                                  'virsh command does. For example, a remote '
                                  'qemu connection over ssh might be '
                                  'qemu+ssh://user@somehypervisor/system. The '
