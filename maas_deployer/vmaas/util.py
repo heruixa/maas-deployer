@@ -107,7 +107,7 @@ def execc(cmd, stdin=None, pipedcmds=None, fatal=True, suppress_stderr=False,
                 log.error(stderr)
                 print stderr
 
-            raise subprocess.CalledProcessError(p.returncode, ' '.join(cmd),
+            raise subprocess.CalledProcessError(rc, ' '.join(cmd),
                                                 output=stderr)
 
         return ret
@@ -115,7 +115,7 @@ def execc(cmd, stdin=None, pipedcmds=None, fatal=True, suppress_stderr=False,
         if not _pipe_stack:
             _pipe_stack = []
 
-        _pipe_stack.append((p, cmd)) 
+        _pipe_stack.append((p, cmd))
 
     return execc(pipedcmds[0], stdin=p.stdout, pipedcmds=pipedcmds[1:],
                  _pipe_stack=_pipe_stack)
