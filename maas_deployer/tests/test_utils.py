@@ -3,7 +3,12 @@
 #
 # Unit tests for util functions
 
+import os
+import shutil
+import subprocess
+import tempfile
 import unittest
+
 from maas_deployer.vmaas import util
 from mock import patch
 
@@ -46,3 +51,46 @@ class TestUtil(unittest.TestCase):
 
         self.assertRaises(UnitTestException, foo)
         self.assertEqual(count[0], 5)
+
+    def test_execc_piped_stderr(self):
+        tmpdir = tempfile.mkdtemp()
+        try:
+            # expect error
+            cmd1 = ['ls', os.path.join(tmpdir, '1')]
+            self.assertRaises(subprocess.CalledProcessError, util.execc, cmd1)
+
+            open(os.path.join(tmpdir, '2'), 'w')
+
+            # expect NO error
+            cmd1 = ['ls', os.path.join(tmpdir, '2')]
+            util.execc(cmd1)
+
+            # expect error
+            cmd1 = ['ls', os.path.join(tmpdir, '1')]
+            cmd2 = ['ls', os.path.join(tmpdir, '2')]
+            open(os.path.join(tmpdir, '2'), 'w')
+            self.assertRaises(subprocess.CalledProcessError, util.execc,
+                              cmd1, pipedcmds=[cmd2])
+
+            # expect NO error
+            cmd1 = ['ls', os.path.join(tmpdir, '2')]
+            cmd2 = ['ls', os.path.join(tmpdir, '2')]
+            open(os.path.join(tmpdir, '2'), 'w')
+            util.execc(cmd1, pipedcmds=[cmd2])
+
+            # test exception params
+            cmd1 = ['ls', os.path.join(tmpdir, '1')]
+            cmd2 = ['ls', os.path.join(tmpdir, '2')]
+            open(os.path.join(tmpdir, '2'), 'w')
+            try:
+                util.execc(cmd1, pipedcmds=[cmd2])
+            except subprocess.CalledProcessError as exc:
+                self.assertEqual(exc.output,
+                                 "ls: cannot access %s: No such file or "
+                                 "directory\n" % (os.path.join(tmpdir, '1')))
+                self.assertEqual(exc.returncode, 2)
+            else:
+                raise UnitTestException("Exception not raised")
+
+        finally:
+            shutil.rmtree(tmpdir)

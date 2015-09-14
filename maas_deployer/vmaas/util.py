@@ -44,11 +44,16 @@ def retry_on_exception(max_retries=5, exc_tuple=None):
     return _retry_on_exception
 
 
-def execc(cmd, stdin=None, pipedcmds=None, fatal=True, suppress_stderr=False):
+def execc(cmd, stdin=None, pipedcmds=None, fatal=True, suppress_stderr=False,
+          _pipe_stack=None):
     """Execute command with subprocess.
 
     If pipedcmds are provided, this function is called recursively piping
     stdout to next stdin and returning stdout of final process.
+
+    When using piped commands this function will maintain a stack of executed
+    commands in _pipe_stack so as to be able to track failures. Usage of this
+    parameter is restricted to this function.
     """
     _input = None
 
@@ -80,17 +85,40 @@ def execc(cmd, stdin=None, pipedcmds=None, fatal=True, suppress_stderr=False):
 
     if not pipedcmds:
         ret = p.communicate(input=_input)
-        if fatal and p.returncode:
-            stderr = ret[1]
+
+        bad = None
+        if _pipe_stack:
+            for pp, pcmd in _pipe_stack:
+                pp.wait()
+                if pp.returncode:
+                    bad = (pp.returncode, pp.stderr.read(), pcmd)
+                    break
+
+        if fatal and (p.returncode or bad):
+            if bad:
+                rc = bad[0]
+                stderr = bad[1]
+                cmd = pcmd
+            else:
+                rc = p.returncode
+                stderr = ret[1]
+
             if not suppress_stderr:
+                log.error(stderr)
                 print stderr
 
-            raise subprocess.CalledProcessError(p.returncode, ' '.join(cmd),
+            raise subprocess.CalledProcessError(rc, ' '.join(cmd),
                                                 output=stderr)
 
         return ret
+    else:
+        if not _pipe_stack:
+            _pipe_stack = []
 
-    return execc(pipedcmds[0], stdin=p.stdout, pipedcmds=pipedcmds[1:])
+        _pipe_stack.append((p, cmd))
+
+    return execc(pipedcmds[0], stdin=p.stdout, pipedcmds=pipedcmds[1:],
+                 _pipe_stack=_pipe_stack)
 
 
 def exec_script_remote(user, host, script):
