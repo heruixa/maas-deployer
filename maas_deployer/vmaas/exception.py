@@ -35,3 +35,8 @@ class MAASDeployerPoolNotFound(MAASDeployerBaseException):
 class MAASDeployerClientError(MAASDeployerBaseException):
     def __init__(self, msg):
         super(MAASDeployerClientError, self).__init__(msg)
+
+
+class MAASDeployerConfigError(MAASDeployerBaseException):
+    def __init__(self, msg):
+        super(MAASDeployerConfigError, self).__init__(msg)

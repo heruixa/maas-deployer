@@ -21,8 +21,9 @@ from subprocess import CalledProcessError
 import maas_deployer.vmaas.template as template
 
 from maas_deployer.vmaas.exception import (
-    MAASDeployerResourceAlreadyExists,
+    MAASDeployerConfigError,
     MAASDeployerPoolNotFound,
+    MAASDeployerResourceAlreadyExists,
 )
 from maas_deployer.vmaas.util import (
     execc,
@@ -395,22 +396,7 @@ class CloudInstance(Instance):
         Generates the cloud-init meta-data file containing
         the networking parameters.
         """
-        # Note, need this weird hack to preserve the spacing in the
-        # template file otherwise the spacing is off and the data gets
-        # dropped due to yaml formatting.
-        if self.network_interfaces_content is None:
-            raise Exception("Expected the content of the "
-                            "/etc/network/interfaces file to be provided.")
-
-        content = '\n  '.join(self.network_interfaces_content.split('\n'))
-        params = {'network_config': content}
-        path = os.path.join(self.working_dir, 'meta-data')
-        with open(path, 'w+') as out:
-            content = template.load('meta-data', params)
-            out.write(content)
-            out.flush()
-
-        return path
+        return os.path.join(self.working_dir, 'meta-data')
 
     def _get_ssh_key(self):
         """
@@ -437,12 +423,24 @@ class CloudInstance(Instance):
         the cloud-init configuration.
         """
         base_file = os.path.join(self.working_dir, 'cloud-init.cfg')
+
+        if self.network_interfaces_content is None:
+            msg = ("Expected the content of the /etc/network/interfaces file "
+                   "to be provided.")
+            raise MAASDeployerConfigError(msg)
+
+        # Format entry
+        etc_net_interfaces = self.network_interfaces_content.split('\n')
+        etc_net_interfaces = ["        %s" % l.strip() for l in
+                              etc_net_interfaces]
+
         parms = {
             'hostname': self.name,
             'user': self.user,
             'password': self.password,
             'ssh_key': self._get_ssh_key(),
-            'apt_http_proxy': self.apt_http_proxy
+            'apt_http_proxy': self.apt_http_proxy,
+            'network_config': '\n'.join(etc_net_interfaces)
         }
         content = template.load('cloud-init.cfg', parms)
         with open(base_file, 'w+') as f:
