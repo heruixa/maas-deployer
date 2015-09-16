@@ -98,7 +98,7 @@ def execc(cmd, stdin=None, pipedcmds=None, fatal=True, suppress_stderr=False,
             if bad:
                 rc = bad[0]
                 stderr = bad[1]
-                cmd = pcmd
+                cmd = bad[2]
             else:
                 rc = p.returncode
                 stderr = ret[1]
