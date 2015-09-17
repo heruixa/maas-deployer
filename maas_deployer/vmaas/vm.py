@@ -438,7 +438,8 @@ class CloudInstance(Instance):
 
         # Format entry
         etc_net_interfaces = self.network_interfaces_content.split('\n')
-        etc_net_interfaces = ["        %s" % l.strip() for l in
+        indent = '        '
+        etc_net_interfaces = ["%s%s" % (indent, l.rstrip()) for l in
                               etc_net_interfaces]
 
         parms = {
