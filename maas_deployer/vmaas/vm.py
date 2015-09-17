@@ -392,11 +392,18 @@ class CloudInstance(Instance):
         return self._get_disk_param(image=root_img_name)
 
     def _generate_meta_data_file(self):
+        """Generates the cloud-init meta-data file.
+
+        Returns path to file.
         """
-        Generates the cloud-init meta-data file containing
-        the networking parameters.
-        """
-        return os.path.join(self.working_dir, 'meta-data')
+        path = os.path.join(self.working_dir, 'meta-data')
+        params = {}
+        with open(path, 'w+') as out:
+            content = template.load('meta-data', params)
+            out.write(content)
+            out.flush()
+
+        return path
 
     def _get_ssh_key(self):
         """
