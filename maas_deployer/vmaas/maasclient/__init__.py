@@ -94,6 +94,16 @@ class MAASClient(object):
     ###########################################################################
     # Nodegroup API - http://maas.ubuntu.com/docs/api.html#nodegroups
     ###########################################################################
+    def update_nodegroup(self, nodegroup, **settings):
+        """
+        Update nodegroup.
+        http://maas.ubuntu.com/docs/api.html#nodegroups
+        """
+        resp = self.driver.update_nodegroup(nodegroup, **settings)
+        if resp.ok:
+            return True
+        return False
+
     def get_nodegroups(self):
         """
         Returns the nodegroups.

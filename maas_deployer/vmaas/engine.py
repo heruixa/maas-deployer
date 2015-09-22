@@ -21,6 +21,7 @@ from maas_deployer.vmaas import (
 )
 from maas_deployer.vmaas.exception import (
     MAASDeployerClientError,
+    MAASDeployerConfigError,
 )
 from maas_deployer.vmaas.maasclient import (
     bootimages,
@@ -422,17 +423,27 @@ class DeploymentEngine(object):
             if not succ:
                 log.error("Unable to set %s to %s", key, value)
 
+    def update_nodegroup(self, client, nodegroup, maas_config):
+        node_group_config = maas_config.get('node_group')
+        if not node_group_config:
+            return
+
+        supported_keys = ['name', 'cluster_name']
+        if not set(node_group_config.keys()).issubset(supported_keys):
+            msg = ("node_group config contains unsupported settings: %s" %
+                   node_group_config.keys())
+            raise MAASDeployerConfigError(msg)
+
+        client.update_nodegroup(nodegroup, **node_group_config)
+
     def configure_maas(self, client, maas_config):
-        """
-        Configures the MAAS instance.
-        """
+        """Configures the MAAS instance."""
+        # FIXME: we currently pick the first node group out of the default
+        #        list which will cause problems if new node groups are added
+        #        and the order changes.
         nodegroup = client.get_nodegroups()[0]
-        log.debug("Creating the nodegroup interfaces...")
-        node_group_interfaces = copy.deepcopy(maas_config['node_group_ifaces'])
-        for iface in node_group_interfaces:
-            if not self.create_nodegroup_interface(client, nodegroup, iface):
-                msg = "Unable to create nodegroup interface: %s" % iface
-                raise MAASDeployerClientError(msg)
+        self.update_nodegroup(client, nodegroup, maas_config)
+        self.create_nodegroup_interfaces(client, nodegroup, maas_config)
 
         nodes = maas_config.get('nodes', [])
         self._create_maas_nodes(client, nodes)
@@ -577,10 +588,7 @@ class DeploymentEngine(object):
         return json.dumps(power_parameters)
 
     def create_nodegroup_interface(self, client, nodegroup, properties):
-        """
-        Creates a NodegroupInterface object from the dictionary of attributes
-        passed in.
-        """
+        """Add/update node group interface."""
         # Note: for compatibility with current revisions of the deployment.yaml
         # file we'll need to flatten the resulting dict from the yaml and then
         # remap some of the resulting keys to meet what the MAAS API is looking
@@ -599,10 +607,13 @@ class DeploymentEngine(object):
                 properties[name_map[key]] = properties[key]
                 del properties[key]
 
-        if not properties.get('name', None):
+        if not properties.get('name'):
             properties['name'] = properties['interface']
 
-        if not properties.get('management', None):
+        log.debug("Creating interface '%s' in node group '%s'",
+                  properties['name'], nodegroup.name)
+
+        if not properties.get('management'):
             properties['management'] = '2'  # Default to dhcp and dns
 
         existing_iface = client.get_nodegroup_interface(nodegroup,
@@ -614,3 +625,15 @@ class DeploymentEngine(object):
             success = client.create_nodegroup_interface(nodegroup, properties)
 
         return success
+
+    def create_nodegroup_interfaces(self, client, nodegroup, maas_config):
+        """
+        Creates a NodegroupInterface object from the dictionary of attributes
+        passed in.
+        """
+        log.debug("Creating node group '%s' interfaces" % (nodegroup.name))
+        node_group_interfaces = copy.deepcopy(maas_config['node_group_ifaces'])
+        for iface in node_group_interfaces:
+            if not self.create_nodegroup_interface(client, nodegroup, iface):
+                msg = "Unable to create nodegroup interface: %s" % iface
+                raise MAASDeployerClientError(msg)
