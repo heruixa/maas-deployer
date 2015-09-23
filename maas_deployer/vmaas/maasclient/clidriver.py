@@ -139,6 +139,14 @@ class CLIDriver(MAASDriver):
     ###########################################################################
     # Nodegroup API - http://maas.ubuntu.com/docs/api.html#nodegroups
     ###########################################################################
+    def update_nodegroup(self, nodegroup, **settings):
+        """
+        Returns the nodegroups.
+        http://maas.ubuntu.com/docs/api.html#nodegroups
+        """
+        return self._maas_execute('node-group', 'update', nodegroup.uuid,
+                                  **settings)
+
     def get_nodegroups(self):
         """
         Returns the nodegroups.

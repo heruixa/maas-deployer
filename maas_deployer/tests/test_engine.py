@@ -14,7 +14,10 @@ from mock import (
 )
 
 sys.modules['apiclient'] = MagicMock()
-from maas_deployer.vmaas import engine
+from maas_deployer.vmaas import (
+    engine,
+    exception,
+)
 
 
 class TestEngine(unittest.TestCase):
@@ -80,3 +83,16 @@ class TestEngine(unittest.TestCase):
         e._create_maas_tags(mock_client, nodes)
         self.assertTrue(mock_client.create_tag.called)
         self.assertTrue(mock_client.get_tags.called)
+
+    @patch.object(engine, 'MAASClient')
+    def test_update_nodegroup(self, mock_client):
+        e = engine.DeploymentEngine({}, 'test-env')
+        nodegroup = {'uuid': 'fd623c43-6f5b-44fa-bc16-0f58a531063f'}
+        maas_config = {'node_group': {'name': 'maas.demo'}}
+        e.update_nodegroup(mock_client, nodegroup, maas_config)
+        self.assertTrue(mock_client.update_nodegroup.called)
+
+        maas_config = {'node_group': {'name': 'maas.demo', 'blah': 123}}
+        self.assertRaises(exception.MAASDeployerConfigError,
+                          e.update_nodegroup, mock_client, nodegroup,
+                          maas_config)

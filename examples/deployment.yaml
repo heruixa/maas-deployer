@@ -83,6 +83,15 @@ demo-maas:
               gateway 192.168.122.1
               dns-nameservers 192.168.122.1 127.0.0.1
 
+        # See https://maas.ubuntu.com/docs/maascli.html#node-groups for
+        # description and full list of supported options.
+        # NOTE: interfaces are added using the node_group_interfaces section
+        #       and only one node_group can be created by this bundle.
+        #       Additional node groups can be added post deployment.
+        #node_group:
+        #    # This is the cluster DNS name.
+        #    name: maas
+
         # The node-group-interfaces section is used to configure the MAAS
         # network interfaces. Basic configuration is supported, such as which
         # device should be bound, the range of IP addresses, etc.
