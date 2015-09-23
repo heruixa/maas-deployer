@@ -300,6 +300,7 @@ class CloudInstance(Instance):
         self.network_interfaces_content = params.get('network_config')
         self.node_group_ifaces = params.get('node_group_ifaces')
         self.apt_http_proxy = params.get('apt_http_proxy')
+        self.apt_sources = params.get('apt_sources')
 
     def _get_cloud_image_info(self):
         """
@@ -448,6 +449,7 @@ class CloudInstance(Instance):
             'password': self.password,
             'ssh_key': self._get_ssh_key(),
             'apt_http_proxy': self.apt_http_proxy,
+            'apt_sources': self.apt_sources,
             'network_config': '\n'.join(etc_net_interfaces)
         }
         content = template.load('cloud-init.cfg', parms)
