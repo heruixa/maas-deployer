@@ -17,7 +17,7 @@ class MAASDeployerResourceAlreadyExists(MAASDeployerBaseException):
                    (resource))
         else:
             msg = ("Resource '%s' (type=%s) already exists. To "
-                   "re-use resources set use_existing=False. To "
+                   "re-use resources set use_existing=True. To "
                    "autodelete resources set force=True" %
                    (resource, resource_type))
 
