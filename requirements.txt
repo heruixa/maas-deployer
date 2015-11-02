@@ -4,4 +4,3 @@ jinja2
 libvirt-python
 lxml
 PyYAML
-markupsafe
