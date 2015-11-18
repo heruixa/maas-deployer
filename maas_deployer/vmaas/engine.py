@@ -473,6 +473,7 @@ class DeploymentEngine(object):
                     log.warning("Re-querying nodegroup list since one or more "
                                 "nodegroups does not have a valid uuid")
                     try_again = True
+                    time.sleep(2)
                     break
 
                 if not cfg_uuid:
