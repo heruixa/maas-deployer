@@ -40,3 +40,8 @@ class MAASDeployerClientError(MAASDeployerBaseException):
 class MAASDeployerConfigError(MAASDeployerBaseException):
     def __init__(self, msg):
         super(MAASDeployerConfigError, self).__init__(msg)
+
+
+class MAASDeployerValueError(MAASDeployerBaseException):
+    def __init__(self, msg):
+        super(MAASDeployerValueError, self).__init__(msg)

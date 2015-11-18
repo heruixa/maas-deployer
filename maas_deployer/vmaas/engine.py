@@ -11,6 +11,7 @@ import logging
 import os
 import sys
 import time
+import uuid
 
 from subprocess import CalledProcessError
 
@@ -22,6 +23,7 @@ from maas_deployer.vmaas import (
 from maas_deployer.vmaas.exception import (
     MAASDeployerClientError,
     MAASDeployerConfigError,
+    MAASDeployerValueError,
 )
 from maas_deployer.vmaas.maasclient import (
     bootimages,
@@ -424,8 +426,10 @@ class DeploymentEngine(object):
                 log.error("Unable to set %s to %s", key, value)
 
     def update_nodegroup(self, client, nodegroup, maas_config):
+        """Update node group settings."""
         node_group_config = maas_config.get('node_group')
         if not node_group_config:
+            log.debug("Did not find any node group settings in config")
             return
 
         supported_keys = ['name', 'cluster_name']
@@ -436,12 +440,53 @@ class DeploymentEngine(object):
 
         client.update_nodegroup(nodegroup, **node_group_config)
 
+    def get_nodegroup(self, client, maas_config):
+        """Get node group.
+
+        We will get node group corresponding to uuid from config. If uuid not
+        provided we will pick the first from the list returned by MAAS.
+        """
+        cfg_uuid = None
+        node_group_config = maas_config.get('node_group')
+        if not node_group_config:
+            log.info("Node group config not provided")
+        else:
+            cfg_uuid = node_group_config.get('uuid')
+
+        if cfg_uuid:
+            log.debug("Using node group uuid '%s'" % (cfg_uuid))
+        else:
+            log.info("Node group uuid not provided")
+
+        try_again = True
+        while try_again:
+            try_again = False
+            nodegroups = client.get_nodegroups()
+            for nodegroup in nodegroups:
+                # NOTE: for some reason there is period of time after which a
+                # node group is created that the uuid is set to a string like
+                # "master". If we wait a bit it eventually gets set to a valid
+                # uuid.
+                try:
+                    uuid.UUID(nodegroup['uuid'])
+                except ValueError:
+                    log.warning("Re-querying nodegroup list since one or more "
+                                "nodegroups does not have a valid uuid")
+                    try_again = True
+                    break
+
+                if not cfg_uuid:
+                    return nodegroup
+
+                if nodegroup['uuid'] == cfg_uuid:
+                    return nodegroup
+
+        raise MAASDeployerValueError("Could not find nodegroup with uuid "
+                                     "'%s'" % (cfg_uuid))
+
     def configure_maas(self, client, maas_config):
         """Configures the MAAS instance."""
-        # FIXME: we currently pick the first node group out of the default
-        #        list which will cause problems if new node groups are added
-        #        and the order changes.
-        nodegroup = client.get_nodegroups()[0]
+        nodegroup = self.get_nodegroup(client, maas_config)
         self.update_nodegroup(client, nodegroup, maas_config)
         self.create_nodegroup_interfaces(client, nodegroup, maas_config)
 
