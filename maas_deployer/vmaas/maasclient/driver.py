@@ -1,6 +1,9 @@
 #
 # Copyright 2015, Canonical Ltd
 #
+import logging
+
+log = logging.getLogger('vmaas.main')
 
 
 class Response(object):
@@ -43,6 +46,9 @@ class MAASDriver(object):
         """
         if hasattr(obj, 'uuid'):
             return obj.uuid
+        else:
+            log.warning("Attr 'uuid' not found in %s" % obj)
+
         return obj
 
     ###########################################################################

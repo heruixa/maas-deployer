@@ -96,3 +96,30 @@ class TestEngine(unittest.TestCase):
         self.assertRaises(exception.MAASDeployerConfigError,
                           e.update_nodegroup, mock_client, nodegroup,
                           maas_config)
+
+    @patch.object(engine, 'MAASClient')
+    def test_get_nodegroup(self, mock_client):
+        nodegroups = [{"cluster_name": "Cluster master",
+                       "status": 1,
+                       "name": "maas",
+                       "uuid": "d3e2db45-b5fb-4a25-a45e-7319b03a1ff5"},
+                      {"cluster_name": "Alt",
+                       "status": 1,
+                       "name": "maas2",
+                       "uuid": "c1575955-a6ca-43d8-a5dc-a2dc2c52e3ef"}]
+
+        mock_client.get_nodegroups.return_value = nodegroups
+        e = engine.DeploymentEngine({}, 'test-env')
+
+        maas_config = {'node_group': {'name': 'maas.demo'}}
+        nodegroup = e.get_nodegroup(mock_client, maas_config)
+        self.assertEqual(nodegroup['uuid'], nodegroups[0]['uuid'])
+
+        maas_config = {'node_group': {'name': 'maas.demo', 'uuid':
+                                      nodegroups[1]['uuid']}}
+        nodegroup = e.get_nodegroup(mock_client, maas_config)
+        self.assertEqual(nodegroup['uuid'], nodegroups[1]['uuid'])
+
+        maas_config = {'node_group': {'name': 'maas.demo', 'uuid': 'foo'}}
+        self.assertRaises(exception.MAASDeployerValueError, e.get_nodegroup,
+                          mock_client, maas_config)
