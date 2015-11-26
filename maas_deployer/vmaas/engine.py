@@ -30,6 +30,7 @@ from maas_deployer.vmaas.maasclient import (
     MAASClient,
     Tag,
 )
+from maas_deployer.vmaas.maasclient.driver import Response
 
 
 log = logging.getLogger('vmaas.main')
@@ -456,23 +457,30 @@ class DeploymentEngine(object):
         if cfg_uuid:
             log.debug("Using node group uuid '%s'" % (cfg_uuid))
         else:
-            log.info("Node group uuid not provided")
+            log.debug("Node group uuid not provided in config")
 
-        try_again = True
-        while try_again:
-            try_again = False
+        max_retries = 5
+        while True:
             nodegroups = client.get_nodegroups()
             for nodegroup in nodegroups:
-                # NOTE: for some reason there is period of time after which a
-                # node group is created that the uuid is set to a string like
-                # "master". If we wait a bit it eventually gets set to a valid
-                # uuid.
+                # NOTE: see MAAS bug 1519810 for an explanation of why we do
+                #       this.
                 try:
                     uuid.UUID(nodegroup['uuid'])
                 except ValueError:
+                    # This would indicate that the cluster controller has
+                    # failed to autodetect interfaces and thus cannot connect
+                    # to the region controller. We will proceed since it is not
+                    # likely to get solved until we manually add an interface.
+                    if not max_retries:
+                        log.debug("Using cluster controller '%s' despite not "
+                                  "being fully initialised" %
+                                  (nodegroup['uuid']))
+                        return nodegroup
+
+                    max_retries -= 1
                     log.warning("Re-querying nodegroup list since one or more "
                                 "nodegroups does not have a valid uuid")
-                    try_again = True
                     time.sleep(2)
                     break
 
@@ -481,6 +489,8 @@ class DeploymentEngine(object):
 
                 if nodegroup['uuid'] == cfg_uuid:
                     return nodegroup
+            else:
+                break
 
         raise MAASDeployerValueError("Could not find nodegroup with uuid "
                                      "'%s'" % (cfg_uuid))
@@ -669,6 +679,12 @@ class DeploymentEngine(object):
             success = client.update_nodegroup_interface(nodegroup, properties)
         else:
             success = client.create_nodegroup_interface(nodegroup, properties)
+
+        # See LP #1519810 for explanation.
+        if nodegroup.uuid == 'master':
+            # Wait for controller to be connected
+            time.sleep(5)
+            return Response(True, "")
 
         return success
 
