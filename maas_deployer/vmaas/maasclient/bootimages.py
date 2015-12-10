@@ -9,6 +9,12 @@ import httplib2
 import json
 
 
+def sequence_no(num):
+    while True:
+        yield num
+        num = num + 1
+
+
 class ImageImportChecker(object):
     """
     An object which can check the status of importing boot-images.
@@ -19,7 +25,7 @@ class ImageImportChecker(object):
         self.password = password
         self.headers = {}
         self.http = httplib2.Http()
-        self.sequence = xrange(1, 4096).__iter__()
+        self.sequence = sequence_no(1)
 
     @property
     def is_logged_in(self):
