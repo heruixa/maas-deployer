@@ -1,6 +1,6 @@
 bson
 httplib2
 jinja2
-libvirt-python
+--allow-external libvirt-python
 lxml
 PyYAML
