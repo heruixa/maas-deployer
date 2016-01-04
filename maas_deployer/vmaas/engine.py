@@ -260,7 +260,7 @@ class DeploymentEngine(object):
         """Configure the virsh control SSH keys"""
         virsh_info = maas_config.get('virsh')
         if not virsh_info:
-            log.debug('No virsh specified in maas_config.')
+            log.debug('No virsh settings specified in maas_config.')
             return
 
         KEY_TO_FILE_MAP = {
@@ -271,7 +271,7 @@ class DeploymentEngine(object):
         }
 
         # First, make the remote directory.
-        remote_cmd = ['mkdir', 'virsh-keys']
+        remote_cmd = ['mkdir', '-p', 'virsh-keys']
         cmd = self.get_ssh_cmd(maas_config['user'], self.ip_addr,
                                remote_cmd=remote_cmd)
         util.execc(cmd)
@@ -281,13 +281,14 @@ class DeploymentEngine(object):
             if not key.endswith('_key'):
                 continue
 
-            try:
-                dest_file = 'virsh-keys/%s' % KEY_TO_FILE_MAP[key]
-                cmd = self.get_scp_cmd(maas_config['user'], self.ip_addr,
-                                       os.path.expanduser(value), dest_file)
-                util.execc(cmd)
-            except:
-                log.error("Error reading from %s file", value)
+            src = os.path.expanduser(value)
+            if not os.path.isfile(src):
+                raise MAASDeployerValueError("Virsh SSH key '%s' not found"
+                                             % (src))
+
+            dst = 'virsh-keys/%s' % KEY_TO_FILE_MAP[key]
+            cmd = self.get_scp_cmd(maas_config['user'], self.ip_addr, src, dst)
+            util.execc(cmd)
 
         # Now move them over to the maas user.
         script = """
