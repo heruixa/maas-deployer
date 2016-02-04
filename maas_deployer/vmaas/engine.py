@@ -638,6 +638,8 @@ class DeploymentEngine(object):
         for key in config_parms:
             if key.startswith('power_'):
                 power_parameters[key] = config_parms[key]
+            elif key.startswith('mac_'):
+                power_parameters[key] = config_parms[key]
             else:
                 new_key = 'power_' + key
                 power_parameters[new_key] = config_parms[key]
