@@ -635,12 +635,17 @@ class DeploymentEngine(object):
         Converts the power parameters entry
         """
         power_parameters = {}
+        # See https://maas.ubuntu.com/docs/api.html#power-types
+        unprefixed_keys = ['mac_address', 'system_id', 'outlet_id', 'uuid',
+                           'node_id', 'blade_id', 'node_outlet', 'server_name',
+                           'lpar']
         for key in config_parms:
-            if key.startswith('power_'):
-                power_parameters[key] = config_parms[key]
-            elif key.startswith('mac_'):
+            if key in unprefixed_keys:
                 power_parameters[key] = config_parms[key]
             else:
+                # NOTE(dosaboy): this only works if we make sure we support all
+                # keys that don't start with 'power_' above.
+                log.debug("Prepending '%s' to power key '%s'" % (key))
                 new_key = 'power_' + key
                 power_parameters[new_key] = config_parms[key]
 

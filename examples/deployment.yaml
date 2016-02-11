@@ -127,8 +127,10 @@ demo-maas:
         #          - "38:63:bb:43:b8:9c"
         #      # MAAS power settings. Supported key/values are described here:
         #      # https://maas.ubuntu.com/docs/api.html#power-types. For keys
-        #      # that start with 'power_' this part can be omitted and will be
-        #      # automatically prepended by maas-deployer.
+        #      # that start with 'power_' this part can optionally be omitted
+        #      # and will be automatically prepended by maas-deployer. The
+        #      # 'type' key should be set to the power type you want to
+        #      # configure.
         #      power:
         #          type: ipmi
         #          address: 10.0.1.1
