@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="maas-deployer",
-    version="0.0.1",
+    version="0.0.5",
     description="A tool for deploying MAAS clusters using virtual machines.",
     long_description=open("README.md").read(),
     author="MAAS Deployers",
