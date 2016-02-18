@@ -645,7 +645,7 @@ class DeploymentEngine(object):
             else:
                 # NOTE(dosaboy): this only works if we make sure we support all
                 # keys that don't start with 'power_' above.
-                log.debug("Prepending '%s' to power key '%s'" % (key))
+                log.debug("Prepending 'power_' to power key '%s'" % (key))
                 new_key = 'power_' + key
                 power_parameters[new_key] = config_parms[key]
 
