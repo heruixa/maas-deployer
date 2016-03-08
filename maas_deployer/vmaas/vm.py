@@ -458,7 +458,8 @@ class CloudInstance(Instance):
             'ssh_key': self._get_ssh_key(),
             'apt_http_proxy': self.apt_http_proxy,
             'apt_sources': self.apt_sources,
-            'network_config': '\n'.join(etc_net_interfaces)
+            'network_config': '\n'.join(etc_net_interfaces),
+            'arch': self.arch
         }
         content = template.load('cloud-init.cfg', parms)
         with open(base_file, 'w+') as f:
