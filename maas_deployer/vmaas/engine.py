@@ -60,6 +60,11 @@ class DeploymentEngine(object):
                                                maas_config)
         nodes.append(juju_node)
 
+        # create extra VMs
+        for node in config.get('virtual-nodes', {}):
+            n = self.deploy_virtual_node(node, maas_config)
+            nodes.append(n)
+
         self.deploy_maas_node(maas_config)
 
         self.wait_for_maas_installation(maas_config)
@@ -74,20 +79,21 @@ class DeploymentEngine(object):
         self.wait_for_import_boot_images(client, maas_config)
         self.configure_maas(client, maas_config)
 
-    def _get_juju_node_params(self, juju_domain, juju_config, maas_config):
+    def _get_node_params(self, node_domain, node_config, maas_config,
+                         tags=None):
         """
-        Determines the mac address of the juju machine specified.
+        Determines the mac address of the node machine specified.
 
-        :param juju_domain: the juju bootstrap image domain
+        :param node_domain: the juju bootstrap image domain
         :param include_power: a boolean value of whether to include
                               power parameters or not for virsh power
                               control.
         """
         node = {
-            'name': juju_domain.name,
+            'name': node_domain.name,
             'architecture': 'amd64/generic',
-            'mac_addresses': [x for x in juju_domain.mac_addresses],
-            'tags': 'bootstrap'
+            'mac_addresses': [x for x in node_domain.mac_addresses],
+            'tags': tags if tags else node_config['tags'],
         }
 
         virsh_info = maas_config.get('virsh')
@@ -96,10 +102,10 @@ class DeploymentEngine(object):
             node.update({
                 'power_type': 'virsh',
                 'power_parameters_power_address': uri,
-                'power_parameters_power_id': juju_domain.name,
+                'power_parameters_power_id': node_domain.name,
             })
 
-        sticky_cfg = juju_config.get('sticky_ip_address')
+        sticky_cfg = node_config.get('sticky_ip_address')
         if sticky_cfg:
             node['sticky_ip_address'] = sticky_cfg
             node['sticky_ip_address']['mac_address'] = node['mac_addresses'][0]
@@ -117,7 +123,16 @@ class DeploymentEngine(object):
             juju_node.define()
             # Insert juju node information into the maas nodes list.
             # This allows us to define it in maas.
-            return self._get_juju_node_params(juju_node, params, maas_config)
+            return self._get_node_params(juju_node, params, maas_config,
+                                              tags='bootstrap')
+
+    def deploy_virtual_node(self, params, maas_config):
+        log.debug('Creating VM: %s' % params['name'])
+        with vm.Instance(params) as node:
+            node.netboot = True
+            node.define()
+
+            return self._get_node_params(node, params, maas_config)
 
     def deploy_maas_node(self, params):
         """
@@ -538,12 +553,13 @@ class DeploymentEngine(object):
             """
             util.exec_script_remote(maas_config['user'], self.ip_addr, script)
 
-        # Start juju domain
+        # Start nodes
         virsh_info = maas_config.get('virsh')
-        juju_node = self._get_juju_nodename(nodes)
-        if juju_node is not None and not virsh_info:
+        for n in nodes:
+            name = n['name']
             try:
-                util.virsh(['start', juju_node])
+                log.info('Starting: %s' % name)
+                util.virsh(['start', name])
             except CalledProcessError as exc:
                 # Ignore already started error
                 msg = 'Domain is already active'
