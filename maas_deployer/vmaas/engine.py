@@ -85,7 +85,7 @@ class DeploymentEngine(object):
         """
         node = {
             'name': juju_domain.name,
-            'architecture': 'amd64/generic',
+            'architecture': juju_config.get('arch'),
             'mac_addresses': [x for x in juju_domain.mac_addresses],
             'tags': 'bootstrap'
         }

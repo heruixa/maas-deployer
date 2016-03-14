@@ -47,6 +47,7 @@ class Instance(object):
         self.memory = params.get('memory', 1024)
         self.pool = params.get('pool', 'default')
         self.netboot = params.get('netboot', False)
+        self.video = params.get('video', 'cirrus')
 
         self.working_dir = tempfile.mkdtemp()
         self.conn = libvirt.open(cfg.remote)
@@ -130,7 +131,9 @@ class Instance(object):
                '--connect', cfg.remote,
                '--name', self.name,
                '--ram', str(self.memory),
-               '--vcpus', str(self.vcpus)]
+               '--vcpus', str(self.vcpus),
+               '--video', str(self.video),
+               '--arch', str(self.arch)]
 
         for disk in self._get_disks():
             cmd.extend(['--disk', disk])
@@ -307,8 +310,13 @@ class CloudInstance(Instance):
         Returns a tuple with the cloud-image url and the file it
         should be saved as.
         """
-        url = ('https://cloud-images.ubuntu.com/{release}/current/'
-               '{release}-server-cloudimg-{arch}-disk1.img')
+        if self.arch == "ppc64":
+            url = ('https://cloud-images.ubuntu.com/{release}/current/'
+                   '{release}-server-cloudimg-{arch}el-disk1.img')
+        else:
+            url = ('https://cloud-images.ubuntu.com/{release}/current/'
+                   '{release}-server-cloudimg-{arch}-disk1.img')
+
         url = url.format(release=self.release, arch=self.arch)
         f = url.split('/')[-1]
         return (url, f)
@@ -450,7 +458,8 @@ class CloudInstance(Instance):
             'ssh_key': self._get_ssh_key(),
             'apt_http_proxy': self.apt_http_proxy,
             'apt_sources': self.apt_sources,
-            'network_config': '\n'.join(etc_net_interfaces)
+            'network_config': '\n'.join(etc_net_interfaces),
+            'arch': self.arch
         }
         content = template.load('cloud-init.cfg', parms)
         with open(base_file, 'w+') as f:
