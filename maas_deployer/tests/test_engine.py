@@ -123,3 +123,11 @@ class TestEngine(unittest.TestCase):
         maas_config = {'node_group': {'name': 'maas.demo', 'uuid': 'foo'}}
         self.assertRaises(exception.MAASDeployerValueError, e.get_nodegroup,
                           mock_client, maas_config)
+
+    @patch.object(engine.util, 'execc')
+    @patch.object(engine, 'MAASClient')
+    def test_configure_boot_source(self, mock_client, mock_execc):
+        maas_config = {'boot_source':
+                       {"url": "http://myarchive/images/ephemeral/daily/"}}
+        e = engine.DeploymentEngine({}, 'test-env')
+        e.configure_boot_source(mock_client, maas_config)

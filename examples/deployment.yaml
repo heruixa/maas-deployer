@@ -30,6 +30,7 @@ demo-maas:
         arch: amd64
         pool: default
         disk_size: 60G
+        #release: trusty
 
         # Apt http proxy setting(s)
         #apt_http_proxy:
@@ -38,6 +39,27 @@ demo-maas:
         apt_sources:
           - ppa:maas/stable
           - ppa:juju/stable
+
+        # Configure an alternate boot source. Examples may include a local
+        # mirror or daily image archive.
+        #boot_source:
+        #    url: "http://maas.ubuntu.com/images/ephemeral-v2/daily/"
+        #    # If True, delete all existing boot sources
+        #    exclusive: False
+        #    # If True force replace any existing boot source with the same url.
+        #    force: False
+        #    # One or more boot source selections for the provided boot
+        #    # source. If an unavailable selection is provided it will
+        #    # fail to be added.
+        #    # For info on valid options see:
+        #    # http://maas.ubuntu.com/docs/api.html#boot-source-selections
+        #    selections:
+        #        1:
+        #            release: trusty
+        #            os: ubuntu
+        #            arches: amd64
+        #            subarches: "*"
+        #            labels: daily
 
         # Virsh power settings
         # Specifies the uri and keys to use for virsh power control of the 
@@ -61,6 +83,7 @@ demo-maas:
             main_archive: http://archive.ubuntu.com/ubuntu
             upstream_dns: 192.168.122.1
             maas_name: automaas
+            # http_proxy: http://squidproxy:8000
             # kernel_opts: "console=tty0 console=ttyS1,115200n8"
             # ntp_server: ntp.ubuntu.com
 
@@ -95,7 +118,7 @@ demo-maas:
         #       Additional node groups can be added post deployment.
         #node_group:
         #    # This is the cluster DNS name.
-        #    name: maas
+        #    name: maas.demo
 
         # The node-group-interfaces section is used to configure the MAAS
         # network interfaces. Basic configuration is supported, such as which

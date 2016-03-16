@@ -4,12 +4,14 @@
 # @author: Billy Olsen
 #
 
+import base64
 import copy
 import itertools
 import json
 import logging
 import os
 import sys
+import tempfile
 import time
 import uuid
 
@@ -71,6 +73,7 @@ class DeploymentEngine(object):
                             ssh_user=maas_config['user'])
 
         self.apply_maas_settings(client, maas_config)
+        self.configure_boot_source(client, maas_config)
         self.wait_for_import_boot_images(client, maas_config)
         self.configure_maas(client, maas_config)
 
@@ -302,6 +305,133 @@ class DeploymentEngine(object):
         """
         util.exec_script_remote(maas_config['user'], self.ip_addr, script)
 
+    def _delete_existing_bootsources(self, client, sources, exclude=None):
+        log.debug("Deleting exisiting boot sources")
+        for source in sources:
+            if exclude and source['id'] == exclude:
+                log.debug("Skipping delete source id %s", (exclude))
+                continue
+
+            client.delete_boot_source(source['id'])
+
+    def _create_new_boot_source(self, client, maas_config, url, keyring_data,
+                                keyring_filename):
+        log.debug("Creating new boot source url='%s'",  (url))
+        # If we want to supply new keyring data we have to write it to
+        # a file, upload it and reference that from the cli.
+        if keyring_data:
+            ssh_user = maas_config['user']
+            remote_host = self.ip_addr
+            with tempfile.NamedTemporaryFile() as ftmp:
+                with open(ftmp.name, 'w') as fd:
+                    fd.write(base64.b64decode(keyring_data))
+
+                filepath = "/tmp/maas-deployer-archive-keyring.gpg"
+                util.execc(self.get_scp_cmd(ssh_user, remote_host, ftmp.name,
+                                            filepath))
+
+                target = (keyring_filename or "/usr/share/keyrings/%s" %
+                          (os.path.basename(filepath)))
+                log.debug("Writing boot source key '%s'",  (target))
+                cmd = ['sudo', 'mv', filepath, target]
+                util.execc(self.get_ssh_cmd(ssh_user, remote_host,
+                                            remote_cmd=cmd))
+                cmd = ['sudo', 'chmod', '0644', target]
+                util.execc(self.get_ssh_cmd(ssh_user, remote_host,
+                                            remote_cmd=cmd))
+                cmd = ['sudo', 'chown', 'root:', target]
+                util.execc(self.get_ssh_cmd(ssh_user, remote_host,
+                                            remote_cmd=cmd))
+
+                keyring_filename = target
+
+        ret = client.create_boot_source(url, keyring_filename=keyring_filename)
+        if not ret:
+            msg = "Failed to create boot resource url='%s'" % (url)
+            log.error(msg)
+            raise MAASDeployerClientError(msg)
+
+    def configure_boot_source(self, client, maas_config):
+        """Create a new boot source if one has been provided and setup boot
+        source selections as provided.
+
+        NOTE: see bug 1556085 and bug 1391254 for known caveats when
+              configuring boot sources.
+        """
+        newsource = maas_config.get('boot_source')
+        if newsource:
+            log.debug("Configuring boot source '%s'",  (newsource['url']))
+            sources = client.get_boot_sources()
+            url = newsource['url']
+
+            create = True
+            sources_deleted = False
+            existing_id = None
+            existing_ids = [s['id'] for s in sources if s['url'] == url]
+            if existing_ids:
+                if not newsource.get('force'):
+                    existing_id = existing_ids[0]
+                    log.debug("Source with url='%s' already exists (id=%s) - "
+                              "skipping create" % (url, existing_id))
+                    create = False
+                else:
+                    if newsource.get('exclusive'):
+                        self._delete_existing_bootsources(client, sources)
+                        sources_deleted = True
+
+            if create:
+                self._create_new_boot_source(client, maas_config,
+                                             newsource['url'],
+                                             newsource.get('keyring_data'),
+                                             newsource.get('keyring_filename'))
+
+            if not sources_deleted:
+                if newsource.get('exclusive'):
+                    self._delete_existing_bootsources(client, sources)
+
+            selections = newsource.get('selections')
+            sources = client.get_boot_sources()
+            if not selections:
+                log.info("No boot source selections requested")
+                return
+
+            log.debug("Creating source selection(s)")
+            for i, s in enumerate(selections):
+                selection = selections[s]
+                source = \
+                    [src for src in sources if src['url'] == url]
+                if len(source) > 1:
+                    log.warning("Found more than one boot source with "
+                                "url='%s'",  (url))
+
+                # NOTE: __ALL__ of these are required to create a selection
+                source_id = source[0]['id']
+                release = selection['release']
+                os = selection['os']
+                labels = selection['labels']
+                arches = selection['arches']
+                subarches = selection['subarches']
+
+                existing = client.get_boot_source_selections(source_id)
+                existing = [e for e in existing
+                            if e['release'] == release and e['os'] == os]
+                if existing:
+                    log.debug("Selection with release='%s' os='%s' "
+                              "already exists on boot source='%s' - "
+                              "skipping" %
+                              (release, os, source_id))
+                    continue
+
+                ret = client.create_boot_source_selection(source_id,
+                                                          release, os,
+                                                          arches,
+                                                          subarches,
+                                                          labels)
+                if not ret:
+                    msg = "Failed to create boot source selection %d" % (i)
+                    log.error(msg)
+                    raise MAASDeployerClientError(msg)
+
     def wait_for_import_boot_images(self, client, maas_config):
         """Polls the import boot image status."""
         log.debug("Starting the import of boot resources")
@@ -456,7 +586,7 @@ class DeploymentEngine(object):
             cfg_uuid = node_group_config.get('uuid')
 
         if cfg_uuid:
-            log.debug("Using node group uuid '%s'" % (cfg_uuid))
+            log.debug("Using node group uuid '%s'", (cfg_uuid))
         else:
             log.debug("Node group uuid not provided in config")
 
@@ -475,7 +605,7 @@ class DeploymentEngine(object):
                     # likely to get solved until we manually add an interface.
                     if not max_retries:
                         log.debug("Using cluster controller '%s' despite not "
-                                  "being fully initialised" %
+                                  "being fully initialised",
                                   (nodegroup['uuid']))
                         return nodegroup
 
@@ -645,7 +775,7 @@ class DeploymentEngine(object):
             else:
                 # NOTE(dosaboy): this only works if we make sure we support all
                 # keys that don't start with 'power_' above.
-                log.debug("Prepending 'power_' to power key '%s'" % (key))
+                log.debug("Prepending 'power_' to power key '%s'", (key))
                 new_key = 'power_' + key
                 power_parameters[new_key] = config_parms[key]
 
@@ -701,7 +831,7 @@ class DeploymentEngine(object):
         Creates a NodegroupInterface object from the dictionary of attributes
         passed in.
         """
-        log.debug("Creating node group '%s' interfaces" % (nodegroup.name))
+        log.debug("Creating node group '%s' interfaces", (nodegroup.name))
         node_group_interfaces = copy.deepcopy(maas_config['node_group_ifaces'])
         for iface in node_group_interfaces:
             if not self.create_nodegroup_interface(client, nodegroup, iface):
