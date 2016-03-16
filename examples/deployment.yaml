@@ -44,6 +44,11 @@ demo-maas:
         # mirror or daily image archive.
         #boot_source:
         #    url: "http://maas.ubuntu.com/images/ephemeral-v2/daily/"
+        #    # Keyring filename. Optional if keyring_data is provided.
+        #    keyring_filename: /usr/share/keyrings/ubuntu-cloudimage-keyring.gpg
+        #    # Base64-encoded gpg key. If not provided, keyring_filename must
+        #    # be an extant and valid key.
+        #    keyring_data:
         #    # If True, delete all existing boot sources
         #    exclusive: False
         #    # If True force replace any existing boot source with the same url.
