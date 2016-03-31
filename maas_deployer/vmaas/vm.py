@@ -127,13 +127,19 @@ class Instance(object):
         :return: an array of command parameters which can be executed to
                  create the domain.
         """
+
+        # NOTE: virt-install appears to prefer x86_64 over amd64
+        arch = self.arch
+        if arch == 'amd64':
+            arch = 'x86_64'
+
         cmd = ['virt-install',
                '--connect', cfg.remote,
                '--name', self.name,
                '--ram', str(self.memory),
                '--vcpus', str(self.vcpus),
                '--video', str(self.video),
-               '--arch', str(self.arch)]
+               '--arch', str(arch)]
 
         for disk in self._get_disks():
             cmd.extend(['--disk', disk])
