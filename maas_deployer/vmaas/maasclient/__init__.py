@@ -69,6 +69,81 @@ class MAASClient(object):
         return False
 
     ###########################################################################
+    # Boot Source API - http://maas.ubuntu.com/docs/api.html#boot-source
+    ###########################################################################
+    def delete_boot_source(self, id):
+        """Delete boot source.
+
+        :param id: numeric id of boot source to delete
+        """
+        resp = self.driver.delete_boot_source(id)
+        if resp.ok:
+            return True
+        return False
+
+    ###########################################################################
+    # Boot Sources API - http://maas.ubuntu.com/docs/api.html#boot-sources
+    ###########################################################################
+    def get_boot_sources(self):
+        """Get list of available boot sources."""
+        resp = self.driver.get_boot_sources()
+        if resp.ok:
+            return resp.data
+        return False
+
+    def create_boot_source(self, url, keyring_data=None,
+                           keyring_filename=None):
+        """Add new boot source.
+
+        :param url: the url of the bootsource
+        :param keyring_data: The path to the keyring file for this BootSource.
+        :param keyring_filename: The GPG keyring for this BootSource,
+                                 base64-encoded.
+        """
+        resp = self.driver.create_boot_source(
+                                            url,
+                                            keyring_data=keyring_data,
+                                            keyring_filename=keyring_filename)
+        if resp.ok:
+            return resp.data
+        return False
+
+    ###########################################################################
+    # Boot Source Selections API - m.u.c/docs/api.html#boot-source-selections
+    ###########################################################################
+    def create_boot_source_selection(self, source_id, release, os, arches,
+                                     subarches, labels):
+        """
+        Create a new boot source selection.
+
+        :param source_id: numeric id
+        :param release: e.g. trusty
+        :param arches: e.g. amd64
+        :param subarches: e.g. *
+        :param os: e.g. ubuntu
+        :param labels: e.g. release
+        """
+        resp = self.driver.create_boot_source_selection(source_id,
+                                                        release=release, os=os,
+                                                        arches=arches,
+                                                        subarches=subarches,
+                                                        labels=labels)
+        if resp.ok:
+            return resp.data
+        return False
+
+    def get_boot_source_selections(self, source_id):
+        """
+        Get boot source selections.
+
+        :param source_id: numeric id
+        """
+        resp = self.driver.get_boot_source_selections(source_id)
+        if resp.ok:
+            return resp.data
+        return False
+
+    ###########################################################################
     # Boot Images API - http://maas.ubuntu.com/docs/api.html#boot-images
     ###########################################################################
     def get_boot_images(self, nodegroup):
