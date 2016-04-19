@@ -4,12 +4,14 @@
 # @author: Billy Olsen
 #
 
+import base64
 import copy
 import itertools
 import json
 import logging
 import os
 import sys
+import tempfile
 import time
 import uuid
 
@@ -682,7 +684,6 @@ class DeploymentEngine(object):
             util.exec_script_remote(maas_config['user'], self.ip_addr, script)
 
         # Start juju domain
-        virsh_info = maas_config.get('virsh')
         for n in nodes:
             name = n['name']
             try:
