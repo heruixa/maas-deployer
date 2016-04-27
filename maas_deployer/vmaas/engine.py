@@ -485,7 +485,7 @@ class DeploymentEngine(object):
         """Tags value is expected to be a comma-separated list of tag names"""
         tags = node.get('tags', '').split()
         # Sanitise
-        return map(str.strip, tags)
+        return list(map(str.strip, tags))
 
     def _get_juju_nodename(self, nodes):
         """Get name of Juju bootstrap node"""

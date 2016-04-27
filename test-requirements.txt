@@ -1,3 +1,4 @@
+setuptools<20.2
 nose
 flake8
 mock

@@ -9,7 +9,10 @@ import logging
 from apiclient import maas_client as maas
 from maas_deployer.vmaas.maasclient.driver import MAASDriver
 from maas_deployer.vmaas.maasclient.driver import Response
-from urllib2 import HTTPError
+try:
+    from urllib2 import HTTPError
+except ImportError:
+    from urllib.error import HTTPError
 
 log = logging.getLogger('vmaas.main')
 OK = 200

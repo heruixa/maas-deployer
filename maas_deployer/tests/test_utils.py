@@ -86,7 +86,7 @@ class TestUtil(unittest.TestCase):
                 util.execc(cmd1, pipedcmds=[cmd2])
             except subprocess.CalledProcessError as exc:
                 self.assertEqual(exc.output,
-                                 "ls: cannot access %s: No such file or "
+                                 "ls: cannot access '%s': No such file or "
                                  "directory\n" % (os.path.join(tmpdir, '1')))
                 self.assertEqual(exc.returncode, 2)
             else:
