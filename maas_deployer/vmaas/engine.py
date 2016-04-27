@@ -707,10 +707,12 @@ class DeploymentEngine(object):
         which was just setup.
         """
         log.debug("Rendering Juju %s", (JUJU_ENV_YAML))
+        env = self.config.get('juju_environment', {})
         params = {
             'ip_addr': self.ip_addr,
             'api_key': self.api_key,
             'env_name': self.env_name,
+            'default_series': env.get('default_series', 'trusty')
         }
         content = template.load(JUJU_ENV_YAML, params)
         with open(JUJU_ENV_YAML, 'w+') as f:
