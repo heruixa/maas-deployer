@@ -77,7 +77,7 @@ def main():
     target = cfg.target
 
     if target is None and len(config.keys()) == 1:
-        target = config.keys()[0]
+        target = list(config.keys())[0]
 
     if target not in config:
         log.error("Unable to find target: %s", target)
