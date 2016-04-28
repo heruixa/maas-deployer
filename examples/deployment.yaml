@@ -13,6 +13,8 @@ demo-maas:
         disk_size: 20G
         sticky_ip_address:
             requested_address: 192.168.122.5
+        juju_environment:
+            default_series: trusty
 
     maas:
         # Defines the general setup for the MAAS environment, including the

@@ -34,3 +34,6 @@ environments:
         # deployments for development or testing.
         #
         # enable-os-upgrade: true
+        
+        default-series: {{ default_series }}
+        
