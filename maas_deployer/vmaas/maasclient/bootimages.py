@@ -37,15 +37,17 @@ class ImageImportChecker(object):
         url = 'http://%(host)s/MAAS' % {'host': self.host}
         response, _ = self.http.request(url, 'GET')
         self.headers['Content-type'] = 'application/x-www-form-urlencoded'
-        self.headers['Cookie'] = response['set-cookie']
 
-        csrf_token = self.headers['Cookie'].split(';')[0].split('=')[1]
         body = {
             'username': self.username,
             'password': self.password,
             'next': '/MAAS/images',
-            'csrfmiddlewaretoken': csrf_token
         }
+
+        if 'set-cookie' in response:
+            self.headers['Cookie'] = response['set-cookie']
+            csrf_token = self.headers['Cookie'].split(';')[0].split('=')[1]
+            body['csrfmiddlewaretoken'] = csrf_token
 
         url = 'http://%(host)s/MAAS/accounts/login/' % {'host': self.host}
         response, _ = self.http.request(url, 'POST', headers=self.headers,
