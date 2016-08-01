@@ -6,7 +6,10 @@ import copy
 import json
 import logging
 import os
-import urlparse
+try:
+    import urlparse
+except ImportError:
+    from urllib import parse as urlparse
 
 from subprocess import (
     CalledProcessError,

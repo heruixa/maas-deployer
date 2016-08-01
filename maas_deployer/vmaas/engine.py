@@ -279,11 +279,12 @@ class DeploymentEngine(object):
                                remote_cmd=remote_cmd)
         util.execc(cmd)
 
-        for key, value in virsh_info.iteritems():
+        for key in virsh_info:
             # not a key of interest
             if not key.endswith('_key'):
                 continue
 
+            value = virsh_info[key]
             src = os.path.expanduser(value)
             if not os.path.isfile(src):
                 raise MAASDeployerValueError("Virsh SSH key '%s' not found"
@@ -470,7 +471,7 @@ class DeploymentEngine(object):
         """Tags value is expected to be a comma-separated list of tag names"""
         tags = node.get('tags', '').split()
         # Sanitise
-        return map(str.strip, tags)
+        return list(map(str.strip, tags))
 
     def _get_juju_nodename(self, nodes):
         """Get name of Juju bootstrap node"""
@@ -714,7 +715,7 @@ class DeploymentEngine(object):
         status = ' Waiting for node commissioning to complete '
         spinner = itertools.cycle(['|', '/', '-', '\\'])
         while True:
-            sys.stdout.write(' %s %s ... %d/%d ' % (spinner.next(), status,
+            sys.stdout.write(' %s %s ... %d/%d ' % (next(spinner), status,
                                                     len(ready), len(nodes)))
             sys.stdout.flush()
             sys.stdout.write('\r')
@@ -752,7 +753,8 @@ class DeploymentEngine(object):
                         sticky_nodes[ip_addr] = {'mac_addr': mac_addr,
                                                  'maas_node': m_node}
 
-        for ip_addr, cfg in sticky_nodes.iteritems():
+        for ip_addr in sticky_nodes:
+            cfg = sticky_nodes[ip_addr]
             node = cfg['maas_node']
             log.debug("Claiming sticky IP address '%s' for node '%s'",
                       ip_addr, node['hostname'])

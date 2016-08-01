@@ -427,7 +427,7 @@ class CloudInstance(Instance):
         ssh_dir = os.path.join('~', '.ssh')
         ssh_dir = os.path.expanduser(ssh_dir)
         if not os.path.exists(ssh_dir):
-            os.makedirs(ssh_dir, 0700)
+            os.makedirs(ssh_dir, 0o700)
 
         ssh_file = os.path.join(ssh_dir, 'id_maas')
         if not os.path.exists(ssh_file):

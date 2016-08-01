@@ -12,5 +12,5 @@ class TestBootImages(unittest.TestCase):
 
     def test_sequence_no(self):
         sequence = bootimages.sequence_no(1)
-        for i in xrange(500, 1000000):
-            sequence.next()
+        for i in range(500, 1000000):
+            next(sequence)

@@ -2,6 +2,7 @@
 # Copyright 2015 Canonical, Ltd.
 #
 # Contains utility functions
+from __future__ import print_function
 
 import argparse
 import collections
@@ -60,28 +61,32 @@ def execc(cmd, stdin=None, pipedcmds=None, fatal=True, suppress_stderr=False,
     # Abridge stdin for log if provided
     _stdin = ''
     if stdin:
-        _stdin = stdin
-        if type(stdin) == file:
+        try:
+            _stdin = "%s..." % stdin[:10]
+        except TypeError:
+            # file-like objects don't implement slices
             _stdin = "<type 'file'>"
-        else:
-            if len(_stdin) > 10:
-                _stdin = "%s..." % _stdin[:10]
 
     log.debug("Executing: '%s' stdin='%s'", ' '.join(cmd), _stdin)
 
     if stdin:
-        if type(stdin) == file:
+        # TODO(freyes): change this logic to NOT look for read attribute
+        # to know if this is file-like object
+        if hasattr(stdin, 'read'):
             p = subprocess.Popen(cmd, stdin=stdin, stdout=subprocess.PIPE,
-                                 stderr=subprocess.PIPE)
+                                 stderr=subprocess.PIPE,
+                                 universal_newlines=True)
             stdin.close()
         else:
             p = subprocess.Popen(cmd, stdin=subprocess.PIPE,
                                  stdout=subprocess.PIPE,
-                                 stderr=subprocess.PIPE)
+                                 stderr=subprocess.PIPE,
+                                 universal_newlines=True)
             _input = stdin
     else:
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE)
+                             stderr=subprocess.PIPE,
+                             universal_newlines=True)
 
     if not pipedcmds:
         ret = p.communicate(input=_input)
@@ -105,7 +110,7 @@ def execc(cmd, stdin=None, pipedcmds=None, fatal=True, suppress_stderr=False,
 
             if not suppress_stderr:
                 log.error(stderr)
-                print stderr
+                print(stderr)
 
             raise subprocess.CalledProcessError(rc, ' '.join(cmd),
                                                 output=stderr)

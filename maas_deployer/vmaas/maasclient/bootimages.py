@@ -4,7 +4,12 @@
 # Web-API to provide boot image import status information.
 #
 
-import urllib
+try:
+    # python3
+    from urllib.parse import urlencode
+except ImportError:
+    from urllib import urlencode
+
 import httplib2
 import json
 
@@ -51,7 +56,7 @@ class ImageImportChecker(object):
 
         url = 'http://%(host)s/MAAS/accounts/login/' % {'host': self.host}
         response, _ = self.http.request(url, 'POST', headers=self.headers,
-                                        body=urllib.urlencode(body))
+                                        body=urlencode(body))
 
         # Expect a 302 redirect
         if '302' == response['status']:
@@ -65,7 +70,7 @@ class ImageImportChecker(object):
             self.do_login()
 
         url = ('http://%(host)s/MAAS/images/?sequence=%(sequence)d' %
-               {'host': self.host, 'sequence': self.sequence.next()})
+               {'host': self.host, 'sequence': next(self.sequence)})
         self.headers['X-Requested-With'] = 'XMLHttpRequest'
         response, content = self.http.request(url, 'GET', headers=self.headers)
 
@@ -75,7 +80,7 @@ class ImageImportChecker(object):
         if not response['status'] == '200':
             raise Exception("Unexpected response received: %s" % response)
 
-        data = json.loads(content)
+        data = json.loads(content.decode('utf-8', errors='ignore'))
         return ImportStatus(data)
 
     def did_downloads_start(self):
