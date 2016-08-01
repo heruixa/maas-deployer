@@ -85,9 +85,20 @@ class TestUtil(unittest.TestCase):
             try:
                 util.execc(cmd1, pipedcmds=[cmd2])
             except subprocess.CalledProcessError as exc:
-                self.assertEqual(exc.output,
-                                 "ls: cannot access %s: No such file or "
-                                 "directory\n" % (os.path.join(tmpdir, '1')))
+                test_passed = False
+                for msg in [("ls: cannot access %s: No such file or "
+                             "directory\n"),
+                            ("ls: cannot access '%s': No such file or "
+                             "directory\n")]:
+                    try:
+                        self.assertEqual(exc.output,
+                                         msg % (os.path.join(tmpdir, '1')))
+                        test_passed = True
+                        break
+                    except AssertionError:
+                        pass
+
+                self.assertTrue(test_passed, exc.output)
                 self.assertEqual(exc.returncode, 2)
             else:
                 raise UnitTestException("Exception not raised")
